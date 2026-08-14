@@ -30,7 +30,13 @@ def build_local_spark_session(
     # For local sessions we always want the jars pip installed alongside pyspark.
     if master.startswith("local"):
         import os
+        import sys
         os.environ.pop("SPARK_HOME", None)
+        # Pin worker Python to the driver's interpreter — without this, workers may
+        # pick a system Python that mismatches the driver's venv and fail with a
+        # PYSPARK_PYTHON driver/worker version-mismatch error on any Spark action.
+        os.environ.setdefault("PYSPARK_PYTHON", sys.executable)
+        os.environ.setdefault("PYSPARK_DRIVER_PYTHON", sys.executable)
 
     warehouse_dir = Path(warehouse_dir)
     metastore_dir = Path(metastore_dir)
