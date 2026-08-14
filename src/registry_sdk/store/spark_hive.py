@@ -172,7 +172,34 @@ class SparkHiveSpecStore(SpecStore):
         )
 
     def promote(self, family, version, status, *, assigned_by, note="", reactivate=False):
-        raise NotImplementedError
+        if not self.exists(family, version):
+            raise KeyError(f"{family}@{version} is not registered")
+
+        current = self.current_status(family, version)
+        if current == Status.RETIRED and not reactivate:
+            raise ValueError(
+                f"{family}@{version} is retired; pass reactivate=True to un-retire"
+            )
+
+        now = datetime.now(timezone.utc)
+        events = [
+            _new_status_event(family, version, status, assigned_by, note, now),
+        ]
+
+        # Atomic production swap: any current prod in the family must be
+        # retired in the same commit as the new prod's promotion.
+        if status == Status.PRODUCTION:
+            for reg in self.by_status(family, Status.PRODUCTION):
+                if reg.version == version:
+                    continue
+                events.append(
+                    _new_status_event(
+                        family, reg.version, Status.RETIRED, assigned_by,
+                        f"auto-retired on promotion of {version} to production",
+                        now,
+                    )
+                )
+        self._append_status_events(events)
 
     def current_status(self, family, version, *, as_of=None):
         df = (
