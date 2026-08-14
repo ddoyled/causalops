@@ -1,0 +1,30 @@
+# Register the ModelSpec whenever a v*.*.* tag is pushed. This runs the same
+# `registry-sdk register` command a developer can run locally.
+name: Register model spec
+on:
+  push:
+    tags: ['v*.*.*']
+
+jobs:
+  register:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install SDK
+        run: pip install registry-sdk
+      - name: Type-check the spec
+        run: |
+          pip install mypy
+          mypy model_spec.py --strict
+      # In a real setup this step would authenticate to Databricks and export
+      # REGISTRY_STORE_CONFIG pointing at the UC schema for the registry.
+      - name: Register
+        env:
+          REGISTRY_STORE_CONFIG: ${{ vars.REGISTRY_STORE_CONFIG }}
+        run: registry-sdk register --spec-path model_spec.py
