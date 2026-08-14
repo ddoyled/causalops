@@ -111,3 +111,30 @@ def register(ctx, spec_path, git_repo, git_tag, git_sha, registered_by, force):
         registered_by=registered_by, sdk_version=__version__,
     )
     click.echo(f"Registered: {reg.family}@{reg.version} (sha={reg.git_sha[:8]})")
+
+
+@cli.command()
+@click.option("--family", required=True)
+@click.option("--version", required=True)
+@click.option(
+    "--status",
+    type=click.Choice(["experiment", "challenger", "production", "retired"]),
+    required=True,
+)
+@click.option("--assigned-by", required=True, envvar="USER")
+@click.option("--note", default="")
+@click.option("--reactivate", is_flag=True,
+              help="Required when un-retiring a version (safety guard).")
+@click.pass_context
+def promote(ctx, family, version, status, assigned_by, note, reactivate):
+    """Append a status event for (family, version)."""
+    from registry_sdk.store.base import Status
+    store = ctx.obj["store"]
+    try:
+        store.promote(
+            family, version, Status(status),
+            assigned_by=assigned_by, note=note, reactivate=reactivate,
+        )
+    except (ValueError, KeyError) as e:
+        raise click.ClickException(str(e))
+    click.echo(f"Promoted: {family}@{version} -> {status}")
