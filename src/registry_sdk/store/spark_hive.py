@@ -149,10 +149,21 @@ class SparkHiveSpecStore(SpecStore):
         )
 
     def list_families(self):
-        raise NotImplementedError
+        rows = (
+            self.spark.table(f"{self.database}.registrations")
+            .select("family").distinct().orderBy("family")
+            .collect()
+        )
+        return [r["family"] for r in rows]
 
     def list_versions(self, family):
-        raise NotImplementedError
+        rows = (
+            self.spark.table(f"{self.database}.registrations")
+            .filter(F.col("family") == family)
+            .select("version").distinct().orderBy("version")
+            .collect()
+        )
+        return [r["version"] for r in rows]
 
     def _append_status_events(self, rows):
         df = self.spark.createDataFrame(list(rows), schema=_STATUS_SCHEMA)
@@ -164,10 +175,43 @@ class SparkHiveSpecStore(SpecStore):
         raise NotImplementedError
 
     def current_status(self, family, version, *, as_of=None):
-        raise NotImplementedError
+        df = (
+            self.spark.table(f"{self.database}.status_log")
+            .filter((F.col("family") == family) & (F.col("version") == version))
+        )
+        if as_of is not None:
+            df = df.filter(F.col("effective_from") <= F.lit(as_of))
+        rows = df.orderBy(F.col("effective_from").desc()).limit(1).collect()
+        if not rows:
+            raise KeyError(f"{family}@{version} has no status events at or before as_of")
+        return Status(rows[0]["status"])
 
     def by_status(self, family, status, *, as_of=None):
-        raise NotImplementedError
+        wanted = [status] if isinstance(status, Status) else list(status)
+        wanted_set = {s.value for s in wanted}
+        # Get all (family, version) with current status matching.
+        out = []
+        for v in self.list_versions(family):
+            try:
+                cur = self.current_status(family, v, as_of=as_of)
+            except KeyError:
+                continue
+            if cur.value in wanted_set:
+                out.append(self.get(family, v))
+        return out
 
     def history(self, family, version):
-        raise NotImplementedError
+        rows = (
+            self.spark.table(f"{self.database}.status_log")
+            .filter((F.col("family") == family) & (F.col("version") == version))
+            .orderBy(F.col("effective_from").asc())
+            .collect()
+        )
+        return [
+            StatusEvent(
+                event_id=r["event_id"], family=r["family"], version=r["version"],
+                status=Status(r["status"]), effective_from=r["effective_from"],
+                assigned_by=r["assigned_by"], note=r["note"] or "",
+            )
+            for r in rows
+        ]
