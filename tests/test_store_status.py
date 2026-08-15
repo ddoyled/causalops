@@ -1,5 +1,6 @@
 """Tests for status query methods on SparkHiveSpecStore."""
-from datetime import datetime, timedelta, timezone
+
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -14,8 +15,11 @@ def _store_with(spark, db, *versions):
     for v in versions:
         store.put(
             sample_spec(version=v),
-            git_repo="org/uplift-model", git_tag=f"v{v}",
-            git_sha="a" * 40, registered_by="alice", sdk_version="0.1.0",
+            git_repo="org/uplift-model",
+            git_tag=f"v{v}",
+            git_sha="a" * 40,
+            registered_by="alice",
+            sdk_version="0.1.0",
         )
     return store
 
@@ -60,22 +64,34 @@ def test_current_status_missing_version_raises(spark, registry_db):
 def test_current_status_respects_as_of(spark, registry_db):
     """Point-in-time query: an event added after `as_of` must not be visible."""
     store = _store_with(spark, registry_db, "3.0.0")
-    before = datetime.now(timezone.utc) - timedelta(days=365)
+    before = datetime.now(UTC) - timedelta(days=365)
     # future event: simulate by appending directly through helper
     import uuid
+
     future_row = (
-        str(uuid.uuid4()), "uplift", "3.0.0", Status.PRODUCTION.value,
-        datetime.now(timezone.utc) + timedelta(days=1), "alice", "",
+        str(uuid.uuid4()),
+        "uplift",
+        "3.0.0",
+        Status.PRODUCTION.value,
+        datetime.now(UTC) + timedelta(days=1),
+        "alice",
+        "",
     )
     from causalops.store.spark_hive import _STATUS_SCHEMA
-    spark.createDataFrame([future_row], schema=_STATUS_SCHEMA).write.format(
-        "delta"
-    ).mode("append").saveAsTable(f"{registry_db}.status_log")
+
+    spark.createDataFrame([future_row], schema=_STATUS_SCHEMA).write.format("delta").mode(
+        "append"
+    ).saveAsTable(f"{registry_db}.status_log")
 
     # as_of before any event -> KeyError
     with pytest.raises(KeyError):
         store.current_status("uplift", "3.0.0", as_of=before)
     # as_of now -> experiment (future event excluded)
-    assert store.current_status(
-        "uplift", "3.0.0", as_of=datetime.now(timezone.utc),
-    ) == Status.EXPERIMENT
+    assert (
+        store.current_status(
+            "uplift",
+            "3.0.0",
+            as_of=datetime.now(UTC),
+        )
+        == Status.EXPERIMENT
+    )

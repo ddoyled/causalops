@@ -1,8 +1,10 @@
 """Plan and execute cross-version metric queries."""
+
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import TYPE_CHECKING, Iterable
+from collections.abc import Iterable
+from typing import TYPE_CHECKING
 
 from pyspark.sql import functions as F
 
@@ -13,8 +15,11 @@ if TYPE_CHECKING:
 
 
 def plan_for_spec(
-    spark: "SparkSession", spec: ModelSpec, *, metrics: Iterable[str],
-) -> "DataFrame":
+    spark: SparkSession,
+    spec: ModelSpec,
+    *,
+    metrics: Iterable[str],
+) -> DataFrame:
     """Resolve requested metric names against one spec and return a joined DataFrame.
 
     Group requested names by their owning table, select physical columns aliased
@@ -25,7 +30,7 @@ def plan_for_spec(
         tbl, canonical, column = spec.resolve_metric(name)
         by_table[tbl].append((canonical, column))
 
-    per_table: list["DataFrame"] = []
+    per_table: list[DataFrame] = []
     for tbl, cols in by_table.items():
         select = [F.col(tbl.key).alias(spec.measurement_key)]
         select += [F.col(col).alias(canonical) for canonical, col in cols]
@@ -38,11 +43,14 @@ def plan_for_spec(
 
 
 def plan_for_specs(
-    spark: "SparkSession", specs: Iterable[ModelSpec], *, metrics: Iterable[str],
-) -> "DataFrame":
+    spark: SparkSession,
+    specs: Iterable[ModelSpec],
+    *,
+    metrics: Iterable[str],
+) -> DataFrame:
     """Plan per spec, tag with `version`, union with NULL padding for missing metrics."""
     wanted = list(metrics)
-    parts: list["DataFrame"] = []
+    parts: list[DataFrame] = []
     for spec in specs:
         present = []
         for m in wanted:

@@ -5,10 +5,10 @@
 - `registry_db` (function-scoped): a unique database name per test, dropped
   on teardown, so store tests get a clean namespace without restarting Spark.
 """
+
 from __future__ import annotations
 
 import uuid
-from pathlib import Path
 
 import pytest
 

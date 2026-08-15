@@ -1,4 +1,5 @@
 """Pydantic models describing a versioned model result contract."""
+
 from __future__ import annotations
 
 import re
@@ -29,7 +30,7 @@ class Metric(BaseModel):
     aliases: tuple[str, ...] = ()
 
     @model_validator(mode="after")
-    def _alias_not_equal_to_name(self) -> "Metric":
+    def _alias_not_equal_to_name(self) -> Metric:
         if self.name in self.aliases:
             raise ValueError(f"alias may not equal canonical name {self.name!r}")
         return self
@@ -49,7 +50,7 @@ class Table(BaseModel):
     metrics: tuple[Metric, ...]
 
     @model_validator(mode="after")
-    def _no_duplicate_metric_names_or_alias_collisions(self) -> "Table":
+    def _no_duplicate_metric_names_or_alias_collisions(self) -> Table:
         seen_names: set[str] = set()
         seen_lookup: set[str] = set()  # names + aliases combined
         for m in self.metrics:
@@ -79,15 +80,13 @@ class ModelSpec(BaseModel):
     tables: tuple[Table, ...]
 
     @model_validator(mode="after")
-    def _version_is_semver(self) -> "ModelSpec":
+    def _version_is_semver(self) -> ModelSpec:
         if not _SEMVER_RE.match(self.version):
-            raise ValueError(
-                f"version {self.version!r} must be MAJOR.MINOR.PATCH (e.g. 3.1.0)"
-            )
+            raise ValueError(f"version {self.version!r} must be MAJOR.MINOR.PATCH (e.g. 3.1.0)")
         return self
 
     @model_validator(mode="after")
-    def _no_duplicate_table_names(self) -> "ModelSpec":
+    def _no_duplicate_table_names(self) -> ModelSpec:
         seen: set[str] = set()
         for t in self.tables:
             if t.name in seen:
@@ -96,7 +95,7 @@ class ModelSpec(BaseModel):
         return self
 
     @model_validator(mode="after")
-    def _no_cross_table_alias_collisions(self) -> "ModelSpec":
+    def _no_cross_table_alias_collisions(self) -> ModelSpec:
         """A metric lookup name (canonical or alias) must be unique across the spec."""
         seen: dict[str, str] = {}  # lookup -> table name
         for t in self.tables:

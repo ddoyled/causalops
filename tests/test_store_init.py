@@ -1,4 +1,5 @@
 """Tests for SparkHiveSpecStore schema initialization."""
+
 from causalops.store.spark_hive import SparkHiveSpecStore
 
 

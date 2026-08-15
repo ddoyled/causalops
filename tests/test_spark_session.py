@@ -5,6 +5,7 @@ so the fixture path IS the factory path — this test exercises it by hitting
 Delta + Hive through the shared session, without standing up (or tearing
 down) its own JVM session (which would kill the shared one).
 """
+
 from pathlib import Path
 
 from pyspark.sql import functions as F

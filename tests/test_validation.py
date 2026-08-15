@@ -1,15 +1,25 @@
 """Tests for validate_against_uc — must warn on missing tables and error on drift."""
+
 from causalops import Metric, ModelSpec, Table
 from causalops.validation import validate_against_uc
 
 
 def _spec(path: str) -> ModelSpec:
     return ModelSpec(
-        family="uplift", version="3.1.0", measurement_key="k",
-        tables=[Table(name="t", path=path, key="k", metrics=[
-            Metric(name="ate", column="ate", dtype="double"),
-            Metric(name="ci_lower", column="ci_lo", dtype="double"),
-        ])],
+        family="uplift",
+        version="3.1.0",
+        measurement_key="k",
+        tables=[
+            Table(
+                name="t",
+                path=path,
+                key="k",
+                metrics=[
+                    Metric(name="ate", column="ate", dtype="double"),
+                    Metric(name="ci_lower", column="ci_lo", dtype="double"),
+                ],
+            )
+        ],
     )
 
 

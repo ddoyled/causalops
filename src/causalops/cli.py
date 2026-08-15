@@ -1,4 +1,5 @@
 """causalops CLI: register and promote."""
+
 from __future__ import annotations
 
 import importlib.util
@@ -23,9 +24,7 @@ def _load_spec(spec_path: Path) -> ModelSpec:
     sys.modules["model_spec"] = module
     module_spec.loader.exec_module(module)
     if not hasattr(module, "spec"):
-        raise click.ClickException(
-            f"{spec_path} must define a top-level `spec` variable"
-        )
+        raise click.ClickException(f"{spec_path} must define a top-level `spec` variable")
     if not isinstance(module.spec, ModelSpec):
         raise click.ClickException(
             f"`spec` in {spec_path} must be a ModelSpec, got {type(module.spec).__name__}"
@@ -36,14 +35,18 @@ def _load_spec(spec_path: Path) -> ModelSpec:
 @click.group()
 @click.version_option(__version__)
 @click.option(
-    "--warehouse-dir", type=click.Path(path_type=Path),
+    "--warehouse-dir",
+    type=click.Path(path_type=Path),
     default=Path.home() / ".causalops" / "warehouse",
-    envvar="CAUSALOPS_WAREHOUSE_DIR", show_default=True,
+    envvar="CAUSALOPS_WAREHOUSE_DIR",
+    show_default=True,
 )
 @click.option(
-    "--metastore-dir", type=click.Path(path_type=Path),
+    "--metastore-dir",
+    type=click.Path(path_type=Path),
     default=Path.home() / ".causalops" / "metastore_db",
-    envvar="CAUSALOPS_METASTORE_DIR", show_default=True,
+    envvar="CAUSALOPS_METASTORE_DIR",
+    show_default=True,
 )
 @click.pass_context
 def cli(ctx: click.Context, warehouse_dir: Path, metastore_dir: Path) -> None:
@@ -65,14 +68,19 @@ def cli(ctx: click.Context, warehouse_dir: Path, metastore_dir: Path) -> None:
 
 
 @cli.command()
-@click.option("--spec-path", type=click.Path(exists=True, path_type=Path),
-              default=Path("model_spec.py"), show_default=True)
+@click.option(
+    "--spec-path",
+    type=click.Path(exists=True, path_type=Path),
+    default=Path("model_spec.py"),
+    show_default=True,
+)
 @click.option("--git-repo", required=True, envvar="GITHUB_REPOSITORY")
 @click.option("--git-tag", required=True, envvar="GITHUB_REF_NAME")
 @click.option("--git-sha", required=True, envvar="GITHUB_SHA")
 @click.option("--registered-by", required=True, envvar="GITHUB_ACTOR")
-@click.option("--force", is_flag=True,
-              help="Overwrite an existing registration for this (family, version).")
+@click.option(
+    "--force", is_flag=True, help="Overwrite an existing registration for this (family, version)."
+)
 @click.pass_context
 def register(ctx, spec_path, git_repo, git_tag, git_sha, registered_by, force):
     """Register a ModelSpec from a local model_spec.py."""
@@ -107,8 +115,12 @@ def register(ctx, spec_path, git_repo, git_tag, git_sha, registered_by, force):
         )
 
     reg = store.put(
-        spec, git_repo=git_repo, git_tag=git_tag, git_sha=git_sha,
-        registered_by=registered_by, sdk_version=__version__,
+        spec,
+        git_repo=git_repo,
+        git_tag=git_tag,
+        git_sha=git_sha,
+        registered_by=registered_by,
+        sdk_version=__version__,
     )
     click.echo(f"Registered: {reg.family}@{reg.version} (sha={reg.git_sha[:8]})")
 
@@ -123,18 +135,24 @@ def register(ctx, spec_path, git_repo, git_tag, git_sha, registered_by, force):
 )
 @click.option("--assigned-by", required=True, envvar="USER")
 @click.option("--note", default="")
-@click.option("--reactivate", is_flag=True,
-              help="Required when un-retiring a version (safety guard).")
+@click.option(
+    "--reactivate", is_flag=True, help="Required when un-retiring a version (safety guard)."
+)
 @click.pass_context
 def promote(ctx, family, version, status, assigned_by, note, reactivate):
     """Append a status event for (family, version)."""
     from causalops.store.base import Status
+
     store = ctx.obj["store"]
     try:
         store.promote(
-            family, version, Status(status),
-            assigned_by=assigned_by, note=note, reactivate=reactivate,
+            family,
+            version,
+            Status(status),
+            assigned_by=assigned_by,
+            note=note,
+            reactivate=reactivate,
         )
     except (ValueError, KeyError) as e:
-        raise click.ClickException(str(e))
+        raise click.ClickException(str(e)) from e
     click.echo(f"Promoted: {family}@{version} -> {status}")

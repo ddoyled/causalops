@@ -6,11 +6,12 @@ equivalent). Local dev uses embedded-Derby Hive; on Databricks the same code
 targets Unity Catalog by pointing `database` at a UC schema (e.g.
 `main.registry`).
 """
+
 from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from delta.tables import DeltaTable
@@ -36,27 +37,31 @@ if TYPE_CHECKING:
 
 # Explicit write schemas — createDataFrame infers types from the tuples,
 # but we want TIMESTAMP (not string) and non-nullable columns.
-_REG_SCHEMA = StructType([
-    StructField("family", StringType(), nullable=False),
-    StructField("version", StringType(), nullable=False),
-    StructField("spec_json", StringType(), nullable=False),
-    StructField("git_repo", StringType(), nullable=False),
-    StructField("git_tag", StringType(), nullable=False),
-    StructField("git_sha", StringType(), nullable=False),
-    StructField("sdk_version", StringType(), nullable=False),
-    StructField("registered_by", StringType(), nullable=False),
-    StructField("registered_at", TimestampType(), nullable=False),
-])
+_REG_SCHEMA = StructType(
+    [
+        StructField("family", StringType(), nullable=False),
+        StructField("version", StringType(), nullable=False),
+        StructField("spec_json", StringType(), nullable=False),
+        StructField("git_repo", StringType(), nullable=False),
+        StructField("git_tag", StringType(), nullable=False),
+        StructField("git_sha", StringType(), nullable=False),
+        StructField("sdk_version", StringType(), nullable=False),
+        StructField("registered_by", StringType(), nullable=False),
+        StructField("registered_at", TimestampType(), nullable=False),
+    ]
+)
 
-_STATUS_SCHEMA = StructType([
-    StructField("event_id", StringType(), nullable=False),
-    StructField("family", StringType(), nullable=False),
-    StructField("version", StringType(), nullable=False),
-    StructField("status", StringType(), nullable=False),
-    StructField("effective_from", TimestampType(), nullable=False),
-    StructField("assigned_by", StringType(), nullable=False),
-    StructField("note", StringType(), nullable=False),
-])
+_STATUS_SCHEMA = StructType(
+    [
+        StructField("event_id", StringType(), nullable=False),
+        StructField("family", StringType(), nullable=False),
+        StructField("version", StringType(), nullable=False),
+        StructField("status", StringType(), nullable=False),
+        StructField("effective_from", TimestampType(), nullable=False),
+        StructField("assigned_by", StringType(), nullable=False),
+        StructField("note", StringType(), nullable=False),
+    ]
+)
 
 
 def _new_status_event(family, version, status, assigned_by, note, at):
@@ -65,7 +70,7 @@ def _new_status_event(family, version, status, assigned_by, note, at):
 
 @dataclass
 class SparkHiveSpecStore(SpecStore):
-    spark: "SparkSession"
+    spark: SparkSession
     database: str
 
     def ensure_tables(self) -> None:
@@ -101,27 +106,45 @@ class SparkHiveSpecStore(SpecStore):
 
     def put(self, spec, *, git_repo, git_tag, git_sha, registered_by, sdk_version):
         if self.exists(spec.family, spec.version):
-            raise KeyError(
-                f"{spec.family}@{spec.version} already registered"
-            )
-        now = datetime.now(timezone.utc)
+            raise KeyError(f"{spec.family}@{spec.version} already registered")
+        now = datetime.now(UTC)
         reg_row = (
-            spec.family, spec.version, spec.model_dump_json(),
-            git_repo, git_tag, git_sha, sdk_version, registered_by, now,
+            spec.family,
+            spec.version,
+            spec.model_dump_json(),
+            git_repo,
+            git_tag,
+            git_sha,
+            sdk_version,
+            registered_by,
+            now,
         )
         (
             self.spark.createDataFrame([reg_row], schema=_REG_SCHEMA)
-            .write.format("delta").mode("append")
+            .write.format("delta")
+            .mode("append")
             .saveAsTable(f"{self.database}.registrations")
         )
         # Initial status event: experiment.
-        self._append_status_events([
-            _new_status_event(spec.family, spec.version, Status.EXPERIMENT,
-                              registered_by, "initial registration", now),
-        ])
+        self._append_status_events(
+            [
+                _new_status_event(
+                    spec.family,
+                    spec.version,
+                    Status.EXPERIMENT,
+                    registered_by,
+                    "initial registration",
+                    now,
+                ),
+            ]
+        )
         return Registration(
-            spec=spec, git_repo=git_repo, git_tag=git_tag, git_sha=git_sha,
-            sdk_version=sdk_version, registered_by=registered_by,
+            spec=spec,
+            git_repo=git_repo,
+            git_tag=git_tag,
+            git_sha=git_sha,
+            sdk_version=sdk_version,
+            registered_by=registered_by,
             registered_at=now,
         )
 
@@ -129,7 +152,8 @@ class SparkHiveSpecStore(SpecStore):
         return (
             self.spark.table(f"{self.database}.registrations")
             .filter((F.col("family") == family) & (F.col("version") == version))
-            .limit(1).take(1)
+            .limit(1)
+            .take(1)
         ) != []
 
     def get(self, family, version):
@@ -143,15 +167,21 @@ class SparkHiveSpecStore(SpecStore):
         r = rows[0]
         spec = ModelSpec.model_validate_json(r["spec_json"])
         return Registration(
-            spec=spec, git_repo=r["git_repo"], git_tag=r["git_tag"],
-            git_sha=r["git_sha"], sdk_version=r["sdk_version"],
-            registered_by=r["registered_by"], registered_at=r["registered_at"],
+            spec=spec,
+            git_repo=r["git_repo"],
+            git_tag=r["git_tag"],
+            git_sha=r["git_sha"],
+            sdk_version=r["sdk_version"],
+            registered_by=r["registered_by"],
+            registered_at=r["registered_at"],
         )
 
     def list_families(self):
         rows = (
             self.spark.table(f"{self.database}.registrations")
-            .select("family").distinct().orderBy("family")
+            .select("family")
+            .distinct()
+            .orderBy("family")
             .collect()
         )
         return [r["family"] for r in rows]
@@ -160,16 +190,16 @@ class SparkHiveSpecStore(SpecStore):
         rows = (
             self.spark.table(f"{self.database}.registrations")
             .filter(F.col("family") == family)
-            .select("version").distinct().orderBy("version")
+            .select("version")
+            .distinct()
+            .orderBy("version")
             .collect()
         )
         return [r["version"] for r in rows]
 
     def _append_status_events(self, rows):
         df = self.spark.createDataFrame(list(rows), schema=_STATUS_SCHEMA)
-        df.write.format("delta").mode("append").saveAsTable(
-            f"{self.database}.status_log"
-        )
+        df.write.format("delta").mode("append").saveAsTable(f"{self.database}.status_log")
 
     def promote(self, family, version, status, *, assigned_by, note="", reactivate=False):
         if not self.exists(family, version):
@@ -177,11 +207,9 @@ class SparkHiveSpecStore(SpecStore):
 
         current = self.current_status(family, version)
         if current == Status.RETIRED and not reactivate:
-            raise ValueError(
-                f"{family}@{version} is retired; pass reactivate=True to un-retire"
-            )
+            raise ValueError(f"{family}@{version} is retired; pass reactivate=True to un-retire")
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         events = [
             _new_status_event(family, version, status, assigned_by, note, now),
         ]
@@ -194,7 +222,10 @@ class SparkHiveSpecStore(SpecStore):
                     continue
                 events.append(
                     _new_status_event(
-                        family, reg.version, Status.RETIRED, assigned_by,
+                        family,
+                        reg.version,
+                        Status.RETIRED,
+                        assigned_by,
                         f"auto-retired on promotion of {version} to production",
                         now,
                     )
@@ -202,9 +233,8 @@ class SparkHiveSpecStore(SpecStore):
         self._append_status_events(events)
 
     def current_status(self, family, version, *, as_of=None):
-        df = (
-            self.spark.table(f"{self.database}.status_log")
-            .filter((F.col("family") == family) & (F.col("version") == version))
+        df = self.spark.table(f"{self.database}.status_log").filter(
+            (F.col("family") == family) & (F.col("version") == version)
         )
         if as_of is not None:
             df = df.filter(F.col("effective_from") <= F.lit(as_of))
@@ -236,9 +266,13 @@ class SparkHiveSpecStore(SpecStore):
         )
         return [
             StatusEvent(
-                event_id=r["event_id"], family=r["family"], version=r["version"],
-                status=Status(r["status"]), effective_from=r["effective_from"],
-                assigned_by=r["assigned_by"], note=r["note"] or "",
+                event_id=r["event_id"],
+                family=r["family"],
+                version=r["version"],
+                status=Status(r["status"]),
+                effective_from=r["effective_from"],
+                assigned_by=r["assigned_by"],
+                note=r["note"] or "",
             )
             for r in rows
         ]

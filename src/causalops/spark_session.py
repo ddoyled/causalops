@@ -3,6 +3,7 @@
 Mirrors the Spark 3.5 surface used in DBR 16.4 so code written against this
 session is portable to a Databricks cluster with minimal changes.
 """
+
 from __future__ import annotations
 
 import os
@@ -52,11 +53,13 @@ def build_local_spark_session(
     # `java_gateway.launch_gateway`. Only takes effect on cold JVM start; if a
     # SparkSession already exists in this process, the earlier path wins.
     derby_log = metastore_dir.parent.resolve() / "derby.log"
-    os.environ["PYSPARK_SUBMIT_ARGS"] = shlex.join([
-        "--driver-java-options",
-        f"-Dderby.stream.error.file={derby_log}",
-        "pyspark-shell",
-    ])
+    os.environ["PYSPARK_SUBMIT_ARGS"] = shlex.join(
+        [
+            "--driver-java-options",
+            f"-Dderby.stream.error.file={derby_log}",
+            "pyspark-shell",
+        ]
+    )
 
     builder = (
         SparkSession.builder.appName(app_name)

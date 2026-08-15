@@ -1,4 +1,5 @@
 """Prove the example model_spec.py loads via the same importer the CLI uses."""
+
 from pathlib import Path
 
 from causalops import ModelSpec

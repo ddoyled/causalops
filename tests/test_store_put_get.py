@@ -1,4 +1,5 @@
 """Tests for SparkHiveSpecStore.put / exists / get."""
+
 import pytest
 
 from causalops.store.base import Status

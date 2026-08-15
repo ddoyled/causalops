@@ -14,15 +14,17 @@ dependencies = [
     "delta-spark==3.2.0",
 ]
 
-[project.optional-dependencies]
+[project.scripts]
+causalops = "causalops.cli:cli"
+
+[dependency-groups]
 dev = [
     "pytest>=8",
     "pytest-xdist>=3",
     "mypy>=1.10",
+    "pre-commit>=4.6.2",
+    "ruff>=0.16.3",
 ]
-
-[project.scripts]
-causalops = "causalops.cli:cli"
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -34,3 +36,36 @@ filterwarnings = [
     "ignore::DeprecationWarning:pyspark.*",
     "ignore::DeprecationWarning:pkg_resources.*",
 ]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests", "scripts"]
+
+[tool.ruff.lint]
+select = [
+    "E", "W",   # pycodestyle
+    "F",        # pyflakes
+    "I",        # isort
+    "B",        # flake8-bugbear
+    "UP",       # pyupgrade
+    "SIM",      # flake8-simplify
+    "C4",       # flake8-comprehensions
+]
+ignore = [
+    "E501",     # line length handled by formatter
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["B011"]
+
+[tool.mypy]
+python_version = "3.12"
+files = ["src"]
+plugins = ["pydantic.mypy"]
+strict_optional = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+warn_unreachable = true
+no_implicit_optional = true
+check_untyped_defs = true

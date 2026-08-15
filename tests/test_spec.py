@@ -1,4 +1,5 @@
 """Tests for ModelSpec / Table / Metric Pydantic models."""
+
 import json
 
 import pytest
@@ -18,8 +19,7 @@ def _sample_spec() -> ModelSpec:
                 path="uplift.shared_v3",
                 key="experiment_id",
                 metrics=[
-                    Metric(name="treatment_effect", column="ate",
-                           dtype="double", aliases=["te"]),
+                    Metric(name="treatment_effect", column="ate", dtype="double", aliases=["te"]),
                     Metric(name="ci_lower", column="ci_lo", dtype="double"),
                 ],
             ),
@@ -28,8 +28,12 @@ def _sample_spec() -> ModelSpec:
                 path="uplift.het_v3",
                 key="experiment_id",
                 metrics=[
-                    Metric(name="cate_variance", column="het_score",
-                           dtype="double", aliases=["heterogeneity_score"]),
+                    Metric(
+                        name="cate_variance",
+                        column="het_score",
+                        dtype="double",
+                        aliases=["heterogeneity_score"],
+                    ),
                 ],
             ),
         ],
@@ -56,16 +60,26 @@ def test_spec_round_trips_through_json():
 def test_version_must_be_semver_like():
     with pytest.raises(ValidationError):
         ModelSpec(
-            family="uplift", version="v3.1", measurement_key="x",
-            tables=[Table(name="t", path="db.tbl", key="x",
-                          metrics=[Metric(name="m", column="c", dtype="double")])],
+            family="uplift",
+            version="v3.1",
+            measurement_key="x",
+            tables=[
+                Table(
+                    name="t",
+                    path="db.tbl",
+                    key="x",
+                    metrics=[Metric(name="m", column="c", dtype="double")],
+                )
+            ],
         )
 
 
 def test_duplicate_metric_names_within_table_rejected():
     with pytest.raises(ValidationError, match="duplicate metric"):
         Table(
-            name="t", path="db.tbl", key="x",
+            name="t",
+            path="db.tbl",
+            key="x",
             metrics=[
                 Metric(name="m", column="c1", dtype="double"),
                 Metric(name="m", column="c2", dtype="double"),
@@ -76,11 +90,12 @@ def test_duplicate_metric_names_within_table_rejected():
 def test_alias_colliding_with_canonical_in_same_table_rejected():
     with pytest.raises(ValidationError, match="alias .* collides"):
         Table(
-            name="t", path="db.tbl", key="x",
+            name="t",
+            path="db.tbl",
+            key="x",
             metrics=[
                 Metric(name="ate", column="ate", dtype="double"),
-                Metric(name="treatment_effect", column="te_col",
-                       dtype="double", aliases=["ate"]),
+                Metric(name="treatment_effect", column="te_col", dtype="double", aliases=["ate"]),
             ],
         )
 
@@ -88,12 +103,22 @@ def test_alias_colliding_with_canonical_in_same_table_rejected():
 def test_duplicate_table_names_within_spec_rejected():
     with pytest.raises(ValidationError, match="duplicate table"):
         ModelSpec(
-            family="uplift", version="3.1.0", measurement_key="x",
+            family="uplift",
+            version="3.1.0",
+            measurement_key="x",
             tables=[
-                Table(name="t", path="db.tbl1", key="x",
-                      metrics=[Metric(name="m1", column="c", dtype="double")]),
-                Table(name="t", path="db.tbl2", key="x",
-                      metrics=[Metric(name="m2", column="c", dtype="double")]),
+                Table(
+                    name="t",
+                    path="db.tbl1",
+                    key="x",
+                    metrics=[Metric(name="m1", column="c", dtype="double")],
+                ),
+                Table(
+                    name="t",
+                    path="db.tbl2",
+                    key="x",
+                    metrics=[Metric(name="m2", column="c", dtype="double")],
+                ),
             ],
         )
 
@@ -117,14 +142,26 @@ def test_resolve_metric_raises_on_unknown():
 def test_resolve_metric_raises_on_cross_table_alias_collision():
     with pytest.raises(ValidationError, match="cross-table"):
         ModelSpec(
-            family="uplift", version="3.1.0", measurement_key="x",
+            family="uplift",
+            version="3.1.0",
+            measurement_key="x",
             tables=[
-                Table(name="a", path="db.tbl1", key="x",
-                      metrics=[Metric(name="m", column="c", dtype="double",
-                                      aliases=["shared_alias"])]),
-                Table(name="b", path="db.tbl2", key="x",
-                      metrics=[Metric(name="n", column="c", dtype="double",
-                                      aliases=["shared_alias"])]),
+                Table(
+                    name="a",
+                    path="db.tbl1",
+                    key="x",
+                    metrics=[
+                        Metric(name="m", column="c", dtype="double", aliases=["shared_alias"])
+                    ],
+                ),
+                Table(
+                    name="b",
+                    path="db.tbl2",
+                    key="x",
+                    metrics=[
+                        Metric(name="n", column="c", dtype="double", aliases=["shared_alias"])
+                    ],
+                ),
             ],
         )
 

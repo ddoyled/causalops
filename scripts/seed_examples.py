@@ -23,20 +23,21 @@ target. If/when we move to Unity Catalog, spec paths become 3-part
 (`catalog.db.table`) and the same `_write_delta` call works unchanged (the
 first segment just becomes a UC catalog instead of a Hive database).
 """
+
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable
 
 import click
 from pyspark.sql import SparkSession
 
 from causalops.spark_session import build_local_spark_session
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _write_delta(spark: SparkSession, df, path: str) -> int:
     """Write `df` as a Delta table at `path` (2-part `<db>.<table>`).
@@ -55,6 +56,7 @@ def _write_delta(spark: SparkSession, df, path: str) -> int:
 # ---------------------------------------------------------------------------
 # Generators — one per example. Fill in the DataFrames.
 # ---------------------------------------------------------------------------
+
 
 def seed_uplift_model(spark: SparkSession) -> None:
     """Mock tables for examples/uplift-model/model_spec.py.
@@ -88,6 +90,60 @@ def seed_uplift_model(spark: SparkSession) -> None:
     #   _write_delta(spark, het, "uplift.het_v3")
 
 
+def seed_scm_model(spark: SparkSession) -> None:
+    # TODO: build DataFrames from these schema drafts and write them.
+    _results_schema = [
+        "rid STRING",
+        "run_date STRING",
+        "run_id STRING",
+        "treatment_target_total DOUBLE",
+        "treatment_target_incremental DOUBLE",
+        "treatment_target_incremental_percentage DOUBLE",
+        "treatment_target_coeff DOUBLE",  # scm specific
+        "treatment_target_ci_hi",
+        "treatment_target_ci_lo",
+    ]
+
+    _metrics_schema = [
+        "rid STRING",
+        "run_date STRING",
+        "run_id STRING",
+        "treatment_ess_ratio DOUBLE",
+        "control_ess_ratio DOUBLE",
+        "absolute_ess DOUBLE",
+        "smd_feature_pre_period_upc_purchases_L3M DOUBLE",
+    ]
+
+
+def seed_bsts_model(spark: SparkSession) -> None:
+    # TODO: build DataFrames from these schema drafts and write them.
+    _results_schema = [
+        "rid STRING",
+        "run_date STRING",
+        "run_id STRING",
+        "observed_target_total DOUBLE",
+        "observed_target_incremental DOUBLE",
+        "observed_target_incremental_percentage DOUBLE",
+        "observed_target_ci_hi",
+        "observed_target_ci_lo",
+    ]
+
+    _metrics_schema = [
+        "rid STRING",
+        "run_date STRING",
+        "run_id STRING",
+        "seasonality_impact_p50 DOUBLE",
+        "seasonality_impact_p025 DOUBLE",
+        "seasonality_impact_p975 DOUBLE",
+        "trend_impact_p50 DOUBLE",
+        "trend_impact_p025 DOUBLE",
+        "trend_impact_p975 DOUBLE",
+        "category_purchases_impact_p50 DOUBLE",
+        "category_purchases_impact_p025 DOUBLE",
+        "category_purchases_impact_p975 DOUBLE",
+    ]
+
+
 # Add new examples here. Key MUST match the directory name under examples/.
 GENERATORS: dict[str, Callable[[SparkSession], None]] = {
     "uplift-model": seed_uplift_model,
@@ -99,6 +155,7 @@ GENERATORS: dict[str, Callable[[SparkSession], None]] = {
 # CLI
 # ---------------------------------------------------------------------------
 
+
 @click.command()
 @click.option(
     "--example",
@@ -107,22 +164,24 @@ GENERATORS: dict[str, Callable[[SparkSession], None]] = {
     help="Example name (matches examples/<name>/) or 'all'.",
 )
 @click.option(
-    "--warehouse-dir", type=click.Path(path_type=Path),
+    "--warehouse-dir",
+    type=click.Path(path_type=Path),
     default=Path.home() / ".causalops" / "warehouse",
-    envvar="CAUSALOPS_WAREHOUSE_DIR", show_default=True,
+    envvar="CAUSALOPS_WAREHOUSE_DIR",
+    show_default=True,
 )
 @click.option(
-    "--metastore-dir", type=click.Path(path_type=Path),
+    "--metastore-dir",
+    type=click.Path(path_type=Path),
     default=Path.home() / ".causalops" / "metastore_db",
-    envvar="CAUSALOPS_METASTORE_DIR", show_default=True,
+    envvar="CAUSALOPS_METASTORE_DIR",
+    show_default=True,
 )
 def main(example: str, warehouse_dir: Path, metastore_dir: Path) -> None:
     """Seed the local warehouse with example mock tables."""
     if example != "all" and example not in GENERATORS:
         known = ", ".join(sorted(GENERATORS)) or "(none registered)"
-        raise click.ClickException(
-            f"unknown example {example!r}. Known: {known}"
-        )
+        raise click.ClickException(f"unknown example {example!r}. Known: {known}")
 
     to_run = list(GENERATORS.items()) if example == "all" else [(example, GENERATORS[example])]
 

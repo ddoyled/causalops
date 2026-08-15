@@ -8,17 +8,18 @@ Concrete implementations must guarantee that promote() writes are atomic;
 in particular, a production promotion writes both the incoming version's
 `production` event and the outgoing version's `retired` event in one commit.
 """
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 
 from causalops.spec import ModelSpec
 
 
-class Status(str, Enum):
+class Status(StrEnum):
     EXPERIMENT = "experiment"
     CHALLENGER = "challenger"
     PRODUCTION = "production"

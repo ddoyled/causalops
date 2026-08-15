@@ -1,4 +1,5 @@
 """Tests for the `causalops register` CLI."""
+
 import textwrap
 
 from click.testing import CliRunner
@@ -11,14 +12,16 @@ def _write_spec(tmp_path, family="uplift", version="3.1.0", table_path=None):
     """Emit a model_spec.py file that defines a top-level `spec` variable."""
     table_path = table_path or f"nonexistent_ns.{family}.results"
     spec_py = tmp_path / "model_spec.py"
-    spec_py.write_text(textwrap.dedent(f"""
+    spec_py.write_text(
+        textwrap.dedent(f"""
         from causalops import Metric, ModelSpec, Table
         spec = ModelSpec(
             family="{family}", version="{version}", measurement_key="k",
             tables=[Table(name="t", path="{table_path}", key="k",
                           metrics=[Metric(name="ate", column="ate", dtype="double")])],
         )
-    """))
+    """)
+    )
     return spec_py
 
 
@@ -26,13 +29,19 @@ def _invoke_register(spark, store, spec_py, extra=()):
     """Inject the shared Spark session + store via Click's ctx.obj."""
     runner = CliRunner()
     return runner.invoke(
-        cli, [
+        cli,
+        [
             "register",
-            "--spec-path", str(spec_py),
-            "--git-repo", "org/uplift-model",
-            "--git-tag", "v3.1.0",
-            "--git-sha", "a" * 40,
-            "--registered-by", "alice",
+            "--spec-path",
+            str(spec_py),
+            "--git-repo",
+            "org/uplift-model",
+            "--git-tag",
+            "v3.1.0",
+            "--git-sha",
+            "a" * 40,
+            "--registered-by",
+            "alice",
             *extra,
         ],
         obj={"spark": spark, "store": store},

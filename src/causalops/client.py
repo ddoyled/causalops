@@ -1,9 +1,11 @@
 """Consumer-facing entry point: RegistryClient."""
+
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import datetime
-from typing import TYPE_CHECKING, Iterable
+from typing import TYPE_CHECKING
 
 from causalops.planner import plan_for_spec, plan_for_specs
 from causalops.store.base import Registration, SpecStore, Status, StatusEvent
@@ -15,7 +17,7 @@ if TYPE_CHECKING:
 @dataclass
 class RegistryClient:
     store: SpecStore
-    spark: "SparkSession"
+    spark: SparkSession
 
     # ---- discovery ----------------------------------------------------------
 
@@ -41,7 +43,7 @@ class RegistryClient:
         version: str | None = None,
         status: str | list[str] | None = None,
         as_of: datetime | str | None = None,
-    ) -> "DataFrame":
+    ) -> DataFrame:
         if version is not None and status is not None:
             raise ValueError("pass either `version` or `status`, not both")
         if version is None and status is None:
@@ -53,15 +55,11 @@ class RegistryClient:
         if version is not None:
             regs = [self.store.get(family, version)]
         else:
-            statuses = (
-                [Status(status)] if isinstance(status, str)
-                else [Status(s) for s in status]
-            )
+            assert status is not None  # narrowed by the guards above
+            statuses = [Status(status)] if isinstance(status, str) else [Status(s) for s in status]
             regs = self.store.by_status(family, statuses, as_of=as_of)
             if not regs:
-                raise LookupError(
-                    f"no {family!r} versions match status(es) {status!r}"
-                )
+                raise LookupError(f"no {family!r} versions match status(es) {status!r}")
 
         specs = [r.spec for r in regs]
         if len(specs) == 1 and version is not None:
