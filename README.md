@@ -34,9 +34,11 @@ Then from a notebook / Python REPL:
     from causalops.spark_session import build_local_spark_session
     from causalops.store import get_store
 
+    from causalops.paths import default_metastore_dir, default_warehouse_dir
+
     spark = build_local_spark_session(
-        warehouse_dir="~/.causalops/warehouse",
-        metastore_dir="~/.causalops/metastore_db",
+        warehouse_dir=default_warehouse_dir(),
+        metastore_dir=default_metastore_dir(),
     )
     client = RegistryClient(store=get_store(spark), spark=spark)
     client.get_results(

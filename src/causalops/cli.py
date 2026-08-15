@@ -11,6 +11,7 @@ from delta.tables import DeltaTable
 from pyspark.sql import functions as F
 
 from causalops import ModelSpec, __version__
+from causalops.paths import default_metastore_dir, default_warehouse_dir
 from causalops.spark_session import build_local_spark_session
 from causalops.store import get_store
 from causalops.validation import validate_against_uc
@@ -37,14 +38,14 @@ def _load_spec(spec_path: Path) -> ModelSpec:
 @click.option(
     "--warehouse-dir",
     type=click.Path(path_type=Path),
-    default=Path.home() / ".causalops" / "warehouse",
+    default=default_warehouse_dir(),
     envvar="CAUSALOPS_WAREHOUSE_DIR",
     show_default=True,
 )
 @click.option(
     "--metastore-dir",
     type=click.Path(path_type=Path),
-    default=Path.home() / ".causalops" / "metastore_db",
+    default=default_metastore_dir(),
     envvar="CAUSALOPS_METASTORE_DIR",
     show_default=True,
 )
