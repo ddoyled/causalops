@@ -10,7 +10,7 @@ def sample_spec(family: str = "uplift", version: str = "3.1.0") -> ModelSpec:
         tables=[
             Table(
                 name="shared",
-                path=f"analytics.{family}.shared_v{version.split('.')[0]}",
+                path=f"{family}.shared_v{version.split('.')[0]}",
                 key="experiment_id",
                 metrics=[
                     Metric(name="treatment_effect", column="ate",

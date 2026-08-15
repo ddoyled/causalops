@@ -17,7 +17,7 @@ def test_status_values():
 def test_registration_dataclass_roundtrips_datetime():
     spec = ModelSpec(
         family="f", version="1.0.0", measurement_key="k",
-        tables=[Table(name="t", path="a.b.c", key="k",
+        tables=[Table(name="t", path="db.tbl", key="k",
                       metrics=[Metric(name="m", column="c", dtype="double")])],
     )
     reg = Registration(

@@ -8,7 +8,7 @@ spec = ModelSpec(
     tables=[
         Table(
             name="shared",
-            path="analytics.uplift.shared_v3",
+            path="uplift.shared_v3",
             key="experiment_id",
             metrics=[
                 Metric(name="treatment_effect", column="ate",
@@ -19,7 +19,7 @@ spec = ModelSpec(
         ),
         Table(
             name="heterogeneity",
-            path="analytics.uplift.het_v3",
+            path="uplift.het_v3",
             key="experiment_id",
             metrics=[
                 Metric(name="cate_variance", column="het_score",

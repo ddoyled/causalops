@@ -5,6 +5,9 @@ session is portable to a Databricks cluster with minimal changes.
 """
 from __future__ import annotations
 
+import os
+import shlex
+import sys
 from pathlib import Path
 
 from delta import configure_spark_with_delta_pip
@@ -29,8 +32,6 @@ def build_local_spark_session(
     # Spark install and load the wrong jars into the pip-installed distribution.
     # For local sessions we always want the jars pip installed alongside pyspark.
     if master.startswith("local"):
-        import os
-        import sys
         os.environ.pop("SPARK_HOME", None)
         # Pin worker Python to the driver's interpreter — without this, workers may
         # pick a system Python that mismatches the driver's venv and fail with a
@@ -42,6 +43,20 @@ def build_local_spark_session(
     metastore_dir = Path(metastore_dir)
     warehouse_dir.mkdir(parents=True, exist_ok=True)
     metastore_dir.parent.mkdir(parents=True, exist_ok=True)
+
+    # Route Derby's own log next to the metastore. Without this, Derby writes
+    # `derby.log` to the JVM's cwd (littering the repo root during dev/tests).
+    # In local mode `spark.driver.extraJavaOptions` is ignored — the driver is
+    # the current JVM — so the system property has to be seeded on the JVM
+    # launch args via PYSPARK_SUBMIT_ARGS, which PySpark reads in
+    # `java_gateway.launch_gateway`. Only takes effect on cold JVM start; if a
+    # SparkSession already exists in this process, the earlier path wins.
+    derby_log = metastore_dir.parent.resolve() / "derby.log"
+    os.environ["PYSPARK_SUBMIT_ARGS"] = shlex.join([
+        "--driver-java-options",
+        f"-Dderby.stream.error.file={derby_log}",
+        "pyspark-shell",
+    ])
 
     builder = (
         SparkSession.builder.appName(app_name)
