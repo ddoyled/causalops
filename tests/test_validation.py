@@ -1,6 +1,6 @@
 """Tests for validate_against_uc — must warn on missing tables and error on drift."""
-from registry_sdk import Metric, ModelSpec, Table
-from registry_sdk.validation import validate_against_uc
+from causalops import Metric, ModelSpec, Table
+from causalops.validation import validate_against_uc
 
 
 def _spec(path: str) -> ModelSpec:

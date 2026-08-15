@@ -1,4 +1,4 @@
-"""registry-sdk CLI: register and promote."""
+"""causalops CLI: register and promote."""
 from __future__ import annotations
 
 import importlib.util
@@ -9,10 +9,10 @@ import click
 from delta.tables import DeltaTable
 from pyspark.sql import functions as F
 
-from registry_sdk import ModelSpec, __version__
-from registry_sdk.spark_session import build_local_spark_session
-from registry_sdk.store import get_store
-from registry_sdk.validation import validate_against_uc
+from causalops import ModelSpec, __version__
+from causalops.spark_session import build_local_spark_session
+from causalops.store import get_store
+from causalops.validation import validate_against_uc
 
 
 def _load_spec(spec_path: Path) -> ModelSpec:
@@ -37,12 +37,12 @@ def _load_spec(spec_path: Path) -> ModelSpec:
 @click.version_option(__version__)
 @click.option(
     "--warehouse-dir", type=click.Path(path_type=Path),
-    default=Path.home() / ".registry_sdk" / "warehouse",
+    default=Path.home() / ".causalops" / "warehouse",
     envvar="REGISTRY_WAREHOUSE_DIR", show_default=True,
 )
 @click.option(
     "--metastore-dir", type=click.Path(path_type=Path),
-    default=Path.home() / ".registry_sdk" / "metastore_db",
+    default=Path.home() / ".causalops" / "metastore_db",
     envvar="REGISTRY_METASTORE_DIR", show_default=True,
 )
 @click.pass_context
@@ -58,7 +58,7 @@ def cli(ctx: click.Context, warehouse_dir: Path, metastore_dir: Path) -> None:
         ctx.obj["spark"] = build_local_spark_session(
             warehouse_dir=warehouse_dir,
             metastore_dir=metastore_dir,
-            app_name="registry_sdk_cli",
+            app_name="causalops_cli",
         )
     if "store" not in ctx.obj:
         ctx.obj["store"] = get_store(ctx.obj["spark"])
@@ -128,7 +128,7 @@ def register(ctx, spec_path, git_repo, git_tag, git_sha, registered_by, force):
 @click.pass_context
 def promote(ctx, family, version, status, assigned_by, note, reactivate):
     """Append a status event for (family, version)."""
-    from registry_sdk.store.base import Status
+    from causalops.store.base import Status
     store = ctx.obj["store"]
     try:
         store.promote(

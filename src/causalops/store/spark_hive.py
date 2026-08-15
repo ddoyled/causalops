@@ -22,8 +22,8 @@ from pyspark.sql.types import (
     TimestampType,
 )
 
-from registry_sdk.spec import ModelSpec
-from registry_sdk.store.base import (
+from causalops.spec import ModelSpec
+from causalops.store.base import (
     Registration,
     SpecStore,
     Status,

@@ -5,8 +5,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import TYPE_CHECKING, Iterable
 
-from registry_sdk.planner import plan_for_spec, plan_for_specs
-from registry_sdk.store.base import Registration, SpecStore, Status, StatusEvent
+from causalops.planner import plan_for_spec, plan_for_specs
+from causalops.store.base import Registration, SpecStore, Status, StatusEvent
 
 if TYPE_CHECKING:
     from pyspark.sql import DataFrame, SparkSession

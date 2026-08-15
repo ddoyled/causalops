@@ -1,5 +1,5 @@
 """Example model_spec.py — imported by the register CLI at tag time."""
-from registry_sdk import Metric, ModelSpec, Table
+from causalops import Metric, ModelSpec, Table
 
 spec = ModelSpec(
     family="uplift",

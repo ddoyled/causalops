@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-from registry_sdk.spark_session import build_local_spark_session
+from causalops.spark_session import build_local_spark_session
 
 
 @pytest.fixture(scope="session")
@@ -21,7 +21,7 @@ def spark(tmp_path_factory):
     spark = build_local_spark_session(
         warehouse_dir=root / "warehouse",
         metastore_dir=root / "metastore_db",
-        app_name="registry_sdk_tests",
+        app_name="causalops_tests",
     )
     yield spark
     spark.stop()

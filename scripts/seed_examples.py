@@ -14,7 +14,7 @@ Usage
     python scripts/seed_examples.py --example all
 
 By default this writes into the same warehouse the CLI uses
-(`~/.registry_sdk/warehouse`), so subsequent `registry-sdk register` runs see
+(`~/.causalops/warehouse`), so subsequent `causalops register` runs see
 the tables. Override with `--warehouse-dir` / `--metastore-dir` for a scratch
 workspace.
 
@@ -31,7 +31,7 @@ from typing import Callable
 import click
 from pyspark.sql import SparkSession
 
-from registry_sdk.spark_session import build_local_spark_session
+from causalops.spark_session import build_local_spark_session
 
 
 # ---------------------------------------------------------------------------
@@ -108,12 +108,12 @@ GENERATORS: dict[str, Callable[[SparkSession], None]] = {
 )
 @click.option(
     "--warehouse-dir", type=click.Path(path_type=Path),
-    default=Path.home() / ".registry_sdk" / "warehouse",
+    default=Path.home() / ".causalops" / "warehouse",
     envvar="REGISTRY_WAREHOUSE_DIR", show_default=True,
 )
 @click.option(
     "--metastore-dir", type=click.Path(path_type=Path),
-    default=Path.home() / ".registry_sdk" / "metastore_db",
+    default=Path.home() / ".causalops" / "metastore_db",
     envvar="REGISTRY_METASTORE_DIR", show_default=True,
 )
 def main(example: str, warehouse_dir: Path, metastore_dir: Path) -> None:
@@ -129,7 +129,7 @@ def main(example: str, warehouse_dir: Path, metastore_dir: Path) -> None:
     spark = build_local_spark_session(
         warehouse_dir=warehouse_dir,
         metastore_dir=metastore_dir,
-        app_name="registry_sdk_seed_examples",
+        app_name="causalops_seed_examples",
     )
     try:
         for name, generator in to_run:

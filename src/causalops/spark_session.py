@@ -18,7 +18,7 @@ def build_local_spark_session(
     *,
     warehouse_dir: Path | str,
     metastore_dir: Path | str,
-    app_name: str = "registry_sdk",
+    app_name: str = "causalops",
     master: str = "local[2]",
 ) -> SparkSession:
     """Build (or reuse) a local Spark session with Delta + Hive support.

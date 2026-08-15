@@ -1,8 +1,8 @@
 """Tests for SparkHiveSpecStore.put / exists / get."""
 import pytest
 
-from registry_sdk.store.base import Status
-from registry_sdk.store.spark_hive import SparkHiveSpecStore
+from causalops.store.base import Status
+from causalops.store.spark_hive import SparkHiveSpecStore
 from tests.fixtures import sample_spec
 
 

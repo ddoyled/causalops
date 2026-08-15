@@ -1,8 +1,8 @@
 """Prove the example model_spec.py loads via the same importer the CLI uses."""
 from pathlib import Path
 
-from registry_sdk import ModelSpec
-from registry_sdk.cli import _load_spec
+from causalops import ModelSpec
+from causalops.cli import _load_spec
 
 
 def test_example_uplift_spec_loads():

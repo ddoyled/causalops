@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 
-from registry_sdk.spec import ModelSpec
+from causalops.spec import ModelSpec
 
 
 class Status(str, Enum):

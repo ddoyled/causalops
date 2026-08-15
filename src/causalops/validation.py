@@ -9,7 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
-from registry_sdk.spec import ModelSpec
+from causalops.spec import ModelSpec
 
 if TYPE_CHECKING:
     from pyspark.sql import SparkSession

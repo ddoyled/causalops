@@ -4,7 +4,7 @@ import json
 import pytest
 from pydantic import ValidationError
 
-from registry_sdk import Metric, ModelSpec, Table
+from causalops import Metric, ModelSpec, Table
 
 
 def _sample_spec() -> ModelSpec:

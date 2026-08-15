@@ -1,5 +1,5 @@
 # Register the ModelSpec whenever a v*.*.* tag is pushed. This runs the same
-# `registry-sdk register` command a developer can run locally.
+# `causalops register` command a developer can run locally.
 name: Register model spec
 on:
   push:
@@ -17,7 +17,7 @@ jobs:
         with:
           python-version: '3.12'
       - name: Install SDK
-        run: pip install registry-sdk
+        run: pip install causalops
       - name: Type-check the spec
         run: |
           pip install mypy
@@ -27,4 +27,4 @@ jobs:
       - name: Register
         env:
           REGISTRY_STORE_CONFIG: ${{ vars.REGISTRY_STORE_CONFIG }}
-        run: registry-sdk register --spec-path model_spec.py
+        run: causalops register --spec-path model_spec.py

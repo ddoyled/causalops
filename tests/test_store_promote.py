@@ -1,8 +1,8 @@
 """Tests for promote() including atomic production swap and reactivate guard."""
 import pytest
 
-from registry_sdk.store.base import Status
-from registry_sdk.store.spark_hive import SparkHiveSpecStore
+from causalops.store.base import Status
+from causalops.store.spark_hive import SparkHiveSpecStore
 from tests.fixtures import sample_spec
 
 

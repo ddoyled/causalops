@@ -3,8 +3,8 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from registry_sdk.store.base import Status
-from registry_sdk.store.spark_hive import SparkHiveSpecStore
+from causalops.store.base import Status
+from causalops.store.spark_hive import SparkHiveSpecStore
 from tests.fixtures import sample_spec
 
 
@@ -67,7 +67,7 @@ def test_current_status_respects_as_of(spark, registry_db):
         str(uuid.uuid4()), "uplift", "3.0.0", Status.PRODUCTION.value,
         datetime.now(timezone.utc) + timedelta(days=1), "alice", "",
     )
-    from registry_sdk.store.spark_hive import _STATUS_SCHEMA
+    from causalops.store.spark_hive import _STATUS_SCHEMA
     spark.createDataFrame([future_row], schema=_STATUS_SCHEMA).write.format(
         "delta"
     ).mode("append").saveAsTable(f"{registry_db}.status_log")

@@ -1,5 +1,5 @@
 """Helpers to build sample ModelSpec objects for tests."""
-from registry_sdk import Metric, ModelSpec, Table
+from causalops import Metric, ModelSpec, Table
 
 
 def sample_spec(family: str = "uplift", version: str = "3.1.0") -> ModelSpec:

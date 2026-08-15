@@ -4,8 +4,8 @@ from datetime import datetime
 
 import pytest
 
-from registry_sdk import Metric, ModelSpec, Table
-from registry_sdk.store.base import Registration, SpecStore, Status
+from causalops import Metric, ModelSpec, Table
+from causalops.store.base import Registration, SpecStore, Status
 
 
 def test_status_values():

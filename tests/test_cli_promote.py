@@ -1,9 +1,9 @@
-"""Tests for the `registry-sdk promote` CLI."""
+"""Tests for the `causalops promote` CLI."""
 from click.testing import CliRunner
 
-from registry_sdk.cli import cli
-from registry_sdk.store.base import Status
-from registry_sdk.store.spark_hive import SparkHiveSpecStore
+from causalops.cli import cli
+from causalops.store.base import Status
+from causalops.store.spark_hive import SparkHiveSpecStore
 from tests.fixtures import sample_spec
 
 

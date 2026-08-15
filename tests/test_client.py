@@ -1,9 +1,9 @@
 """Tests for RegistryClient (consumer-facing API)."""
 import pytest
 
-from registry_sdk import Metric, ModelSpec, RegistryClient, Table
-from registry_sdk.store.base import Status
-from registry_sdk.store.spark_hive import SparkHiveSpecStore
+from causalops import Metric, ModelSpec, RegistryClient, Table
+from causalops.store.base import Status
+from causalops.store.spark_hive import SparkHiveSpecStore
 
 
 def _seed_result_tables(spark, db):

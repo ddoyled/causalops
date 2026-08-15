@@ -7,8 +7,8 @@ resolved through aliases and joined across tables.
 """
 import pytest
 
-from registry_sdk import Metric, ModelSpec, Table
-from registry_sdk.planner import plan_for_spec, plan_for_specs
+from causalops import Metric, ModelSpec, Table
+from causalops.planner import plan_for_spec, plan_for_specs
 
 
 # --- fixtures for fake result tables ----------------------------------------

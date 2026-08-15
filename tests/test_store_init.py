@@ -1,5 +1,5 @@
 """Tests for SparkHiveSpecStore schema initialization."""
-from registry_sdk.store.spark_hive import SparkHiveSpecStore
+from causalops.store.spark_hive import SparkHiveSpecStore
 
 
 def test_ensure_tables_creates_both_tables(spark, registry_db):

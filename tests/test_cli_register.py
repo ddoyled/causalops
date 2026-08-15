@@ -1,10 +1,10 @@
-"""Tests for the `registry-sdk register` CLI."""
+"""Tests for the `causalops register` CLI."""
 import textwrap
 
 from click.testing import CliRunner
 
-from registry_sdk.cli import cli
-from registry_sdk.store.spark_hive import SparkHiveSpecStore
+from causalops.cli import cli
+from causalops.store.spark_hive import SparkHiveSpecStore
 
 
 def _write_spec(tmp_path, family="uplift", version="3.1.0", table_path=None):
@@ -12,7 +12,7 @@ def _write_spec(tmp_path, family="uplift", version="3.1.0", table_path=None):
     table_path = table_path or f"nonexistent_ns.{family}.results"
     spec_py = tmp_path / "model_spec.py"
     spec_py.write_text(textwrap.dedent(f"""
-        from registry_sdk import Metric, ModelSpec, Table
+        from causalops import Metric, ModelSpec, Table
         spec = ModelSpec(
             family="{family}", version="{version}", measurement_key="k",
             tables=[Table(name="t", path="{table_path}", key="k",

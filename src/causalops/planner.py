@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Iterable
 
 from pyspark.sql import functions as F
 
-from registry_sdk.spec import ModelSpec, Table
+from causalops.spec import ModelSpec, Table
 
 if TYPE_CHECKING:
     from pyspark.sql import DataFrame, SparkSession

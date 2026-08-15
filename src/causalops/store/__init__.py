@@ -4,8 +4,8 @@ from __future__ import annotations
 import json
 import os
 
-from registry_sdk.store.base import Registration, SpecStore, Status, StatusEvent
-from registry_sdk.store.spark_hive import SparkHiveSpecStore
+from causalops.store.base import Registration, SpecStore, Status, StatusEvent
+from causalops.store.spark_hive import SparkHiveSpecStore
 
 __all__ = [
     "Registration", "SpecStore", "Status", "StatusEvent",
