@@ -38,16 +38,16 @@ def _load_spec(spec_path: Path) -> ModelSpec:
 @click.option(
     "--warehouse-dir", type=click.Path(path_type=Path),
     default=Path.home() / ".causalops" / "warehouse",
-    envvar="REGISTRY_WAREHOUSE_DIR", show_default=True,
+    envvar="CAUSALOPS_WAREHOUSE_DIR", show_default=True,
 )
 @click.option(
     "--metastore-dir", type=click.Path(path_type=Path),
     default=Path.home() / ".causalops" / "metastore_db",
-    envvar="REGISTRY_METASTORE_DIR", show_default=True,
+    envvar="CAUSALOPS_METASTORE_DIR", show_default=True,
 )
 @click.pass_context
 def cli(ctx: click.Context, warehouse_dir: Path, metastore_dir: Path) -> None:
-    """Model registry SDK CLI.
+    """causalops CLI.
 
     Tests can inject a pre-built Spark session and store by passing
     `obj={"spark": ..., "store": ...}` to `CliRunner.invoke`, in which case

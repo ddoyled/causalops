@@ -109,12 +109,12 @@ GENERATORS: dict[str, Callable[[SparkSession], None]] = {
 @click.option(
     "--warehouse-dir", type=click.Path(path_type=Path),
     default=Path.home() / ".causalops" / "warehouse",
-    envvar="REGISTRY_WAREHOUSE_DIR", show_default=True,
+    envvar="CAUSALOPS_WAREHOUSE_DIR", show_default=True,
 )
 @click.option(
     "--metastore-dir", type=click.Path(path_type=Path),
     default=Path.home() / ".causalops" / "metastore_db",
-    envvar="REGISTRY_METASTORE_DIR", show_default=True,
+    envvar="CAUSALOPS_METASTORE_DIR", show_default=True,
 )
 def main(example: str, warehouse_dir: Path, metastore_dir: Path) -> None:
     """Seed the local warehouse with example mock tables."""

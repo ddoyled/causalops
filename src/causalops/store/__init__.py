@@ -16,13 +16,13 @@ __all__ = [
 def get_store(spark=None) -> SpecStore:
     """Build the configured SpecStore.
 
-    Reads `REGISTRY_STORE_CONFIG` (JSON) from the environment, e.g.
+    Reads `CAUSALOPS_STORE_CONFIG` (JSON) from the environment, e.g.
         {"backend": "spark_hive", "database": "main.registry"}
 
     Defaults to `{"backend": "spark_hive", "database": "registry"}`.
     """
     raw = os.environ.get(
-        "REGISTRY_STORE_CONFIG",
+        "CAUSALOPS_STORE_CONFIG",
         '{"backend": "spark_hive", "database": "registry"}',
     )
     cfg = json.loads(raw)

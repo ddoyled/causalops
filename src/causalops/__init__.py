@@ -1,4 +1,4 @@
-"""causalops — model registry SDK."""
+"""causalops — registry for causal inference model results."""
 
 from causalops.client import RegistryClient
 from causalops.spec import Metric, ModelSpec, Table

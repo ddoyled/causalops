@@ -23,8 +23,8 @@ jobs:
           pip install mypy
           mypy model_spec.py --strict
       # In a real setup this step would authenticate to Databricks and export
-      # REGISTRY_STORE_CONFIG pointing at the UC schema for the registry.
+      # CAUSALOPS_STORE_CONFIG pointing at the UC schema for the registry.
       - name: Register
         env:
-          REGISTRY_STORE_CONFIG: ${{ vars.REGISTRY_STORE_CONFIG }}
+          CAUSALOPS_STORE_CONFIG: ${{ vars.CAUSALOPS_STORE_CONFIG }}
         run: causalops register --spec-path model_spec.py

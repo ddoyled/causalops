@@ -1,4 +1,4 @@
-# Model Registry POC
+# causalops (POC)
 
 Prototype of a shared `causalops` package that lets model repos register
 `ModelSpec`s to a registry and lets consumers query results by status/version.
@@ -20,7 +20,7 @@ See `docs/superpowers/plans/2026-08-14-model-registry-poc.md`.
 
 ## Walkthrough
 
-    export REGISTRY_STORE_CONFIG='{"backend":"spark_hive","database":"registry"}'
+    export CAUSALOPS_STORE_CONFIG='{"backend":"spark_hive","database":"registry"}'
     cd examples/uplift-model
     causalops register --spec-path model_spec.py \
         --git-repo local/uplift-model --git-tag v3.1.0 \
