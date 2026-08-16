@@ -4,8 +4,14 @@ The planner takes one or more ModelSpecs plus a list of requested canonical
 metric names, and returns a Spark DataFrame with columns
 [measurement_key, ..metric_columns.., version?] where metrics have been
 resolved through aliases and joined across tables.
+
+Table paths point at Parquet files on disk; the planner reads them via
+spark.read.parquet through the data_source seam.
 """
 
+from pathlib import Path
+
+import pandas as pd
 import pytest
 
 from causalops import Metric, ModelSpec, Table
@@ -14,26 +20,42 @@ from causalops.planner import plan_for_spec, plan_for_specs
 # --- fixtures for fake result tables ----------------------------------------
 
 
-def _seed_result_tables(spark, db):
-    """Create fake result tables in the local warehouse for planner tests."""
-    # v3 shared: canonical column 'ate'
-    spark.createDataFrame(
-        [("e1", 0.10, 0.05, 0.15), ("e2", 0.20, 0.10, 0.30)],
-        schema="experiment_id STRING, ate DOUBLE, ci_lo DOUBLE, ci_hi DOUBLE",
-    ).write.format("delta").saveAsTable(f"{db}.shared_v3")
-    # v3 heterogeneity
-    spark.createDataFrame(
-        [("e1", 0.4), ("e2", 0.9)],
-        schema="experiment_id STRING, het_score DOUBLE",
-    ).write.format("delta").saveAsTable(f"{db}.het_v3")
-    # v2 shared: physical column 'te' (former canonical name)
-    spark.createDataFrame(
-        [("e1", 0.09), ("e2", 0.19)],
-        schema="experiment_id STRING, te DOUBLE",
-    ).write.format("delta").saveAsTable(f"{db}.shared_v2")
+def _write(pdf: pd.DataFrame, path: Path) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    pdf.to_parquet(path, engine="pyarrow", index=False)
+    return path
 
 
-def _spec_v3(db):
+def _seed_result_tables(tmp_path: Path) -> dict[str, Path]:
+    """Write the three Parquet tables the planner tests reference."""
+    paths = {
+        "shared_v3": tmp_path / "shared_v3.parquet",
+        "het_v3": tmp_path / "het_v3.parquet",
+        "shared_v2": tmp_path / "shared_v2.parquet",
+    }
+    _write(
+        pd.DataFrame(
+            {
+                "experiment_id": ["e1", "e2"],
+                "ate": [0.10, 0.20],
+                "ci_lo": [0.05, 0.10],
+                "ci_hi": [0.15, 0.30],
+            }
+        ),
+        paths["shared_v3"],
+    )
+    _write(
+        pd.DataFrame({"experiment_id": ["e1", "e2"], "het_score": [0.4, 0.9]}),
+        paths["het_v3"],
+    )
+    _write(
+        pd.DataFrame({"experiment_id": ["e1", "e2"], "te": [0.09, 0.19]}),
+        paths["shared_v2"],
+    )
+    return paths
+
+
+def _spec_v3(paths: dict[str, Path]) -> ModelSpec:
     return ModelSpec(
         family="uplift",
         version="3.0.0",
@@ -41,7 +63,7 @@ def _spec_v3(db):
         tables=[
             Table(
                 name="shared",
-                path=f"{db}.shared_v3",
+                path=str(paths["shared_v3"]),
                 key="experiment_id",
                 metrics=[
                     Metric(name="treatment_effect", column="ate", dtype="double", aliases=["te"]),
@@ -51,7 +73,7 @@ def _spec_v3(db):
             ),
             Table(
                 name="het",
-                path=f"{db}.het_v3",
+                path=str(paths["het_v3"]),
                 key="experiment_id",
                 metrics=[
                     Metric(name="cate_variance", column="het_score", dtype="double"),
@@ -61,7 +83,7 @@ def _spec_v3(db):
     )
 
 
-def _spec_v2(db):
+def _spec_v2(paths: dict[str, Path]) -> ModelSpec:
     return ModelSpec(
         family="uplift",
         version="2.9.0",
@@ -69,7 +91,7 @@ def _spec_v2(db):
         tables=[
             Table(
                 name="shared",
-                path=f"{db}.shared_v2",
+                path=str(paths["shared_v2"]),
                 key="experiment_id",
                 metrics=[
                     # v2 used 'te' as the canonical name; in v3 we renamed to
@@ -84,39 +106,35 @@ def _spec_v2(db):
 # --- single-version tests ---------------------------------------------------
 
 
-def test_single_version_join_across_tables(spark, registry_db):
-    _seed_result_tables(spark, registry_db)
-    spec = _spec_v3(registry_db)
-    df = plan_for_spec(spark, spec, metrics=["treatment_effect", "cate_variance"])
+def test_single_version_join_across_tables(spark, tmp_path):
+    paths = _seed_result_tables(tmp_path)
+    df = plan_for_spec(spark, _spec_v3(paths), metrics=["treatment_effect", "cate_variance"])
     rows = {r["experiment_id"]: r for r in df.collect()}
     assert set(rows) == {"e1", "e2"}
     assert rows["e1"]["treatment_effect"] == 0.10
     assert rows["e1"]["cate_variance"] == 0.4
 
 
-def test_single_version_resolves_alias_to_physical_column(spark, registry_db):
-    _seed_result_tables(spark, registry_db)
-    spec = _spec_v3(registry_db)
-    df = plan_for_spec(spark, spec, metrics=["te"])  # alias
+def test_single_version_resolves_alias_to_physical_column(spark, tmp_path):
+    paths = _seed_result_tables(tmp_path)
+    df = plan_for_spec(spark, _spec_v3(paths), metrics=["te"])  # alias
     assert "treatment_effect" in df.columns
     assert "te" not in df.columns
     assert df.filter("experiment_id = 'e1'").first()["treatment_effect"] == 0.10
 
 
-def test_unknown_metric_raises(spark, registry_db):
-    _seed_result_tables(spark, registry_db)
-    spec = _spec_v3(registry_db)
+def test_unknown_metric_raises(spark, tmp_path):
+    paths = _seed_result_tables(tmp_path)
     with pytest.raises(KeyError, match="unknown metric"):
-        plan_for_spec(spark, spec, metrics=["nope"])
+        plan_for_spec(spark, _spec_v3(paths), metrics=["nope"])
 
 
 # --- multi-version tests ----------------------------------------------------
 
 
-def test_multi_version_union_aligns_alias_across_versions(spark, registry_db):
-    _seed_result_tables(spark, registry_db)
-    v2, v3 = _spec_v2(registry_db), _spec_v3(registry_db)
-    df = plan_for_specs(spark, [v2, v3], metrics=["treatment_effect"])
+def test_multi_version_union_aligns_alias_across_versions(spark, tmp_path):
+    paths = _seed_result_tables(tmp_path)
+    df = plan_for_specs(spark, [_spec_v2(paths), _spec_v3(paths)], metrics=["treatment_effect"])
     assert set(df.columns) == {"experiment_id", "treatment_effect", "version"}
     rows = sorted((r["version"], r["experiment_id"], r["treatment_effect"]) for r in df.collect())
     assert rows == [
@@ -127,11 +145,14 @@ def test_multi_version_union_aligns_alias_across_versions(spark, registry_db):
     ]
 
 
-def test_multi_version_pads_missing_metrics_with_null(spark, registry_db):
+def test_multi_version_pads_missing_metrics_with_null(spark, tmp_path):
     """v2 has no cate_variance; requesting it must union with NULLs, not fail."""
-    _seed_result_tables(spark, registry_db)
-    v2, v3 = _spec_v2(registry_db), _spec_v3(registry_db)
-    df = plan_for_specs(spark, [v2, v3], metrics=["treatment_effect", "cate_variance"])
+    paths = _seed_result_tables(tmp_path)
+    df = plan_for_specs(
+        spark,
+        [_spec_v2(paths), _spec_v3(paths)],
+        metrics=["treatment_effect", "cate_variance"],
+    )
     assert set(df.columns) == {
         "experiment_id",
         "treatment_effect",

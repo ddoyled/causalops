@@ -5,37 +5,35 @@ from __future__ import annotations
 import json
 import os
 
+from causalops.paths import default_registry_json_path
 from causalops.store.base import Registration, SpecStore, Status, StatusEvent
-from causalops.store.spark_hive import SparkHiveSpecStore
+from causalops.store.json_file import JsonFileSpecStore
 
 __all__ = [
     "Registration",
     "SpecStore",
     "Status",
     "StatusEvent",
-    "SparkHiveSpecStore",
+    "JsonFileSpecStore",
     "get_store",
 ]
 
 
-def get_store(spark=None) -> SpecStore:
+def get_store() -> SpecStore:
     """Build the configured SpecStore.
 
     Reads `CAUSALOPS_STORE_CONFIG` (JSON) from the environment, e.g.
-        {"backend": "spark_hive", "database": "main.registry"}
 
-    Defaults to `{"backend": "spark_hive", "database": "registry"}`.
+        {"backend": "json_file", "path": ".causalops/registry.json"}
+
+    Defaults to a `json_file` backend at `<repo>/.causalops/registry.json`.
     """
-    raw = os.environ.get(
-        "CAUSALOPS_STORE_CONFIG",
-        '{"backend": "spark_hive", "database": "registry"}',
-    )
-    cfg = json.loads(raw)
-    backend = cfg.get("backend", "spark_hive")
-    if backend != "spark_hive":
-        raise ValueError(f"unsupported backend {backend!r}")
-    if spark is None:
-        raise ValueError("get_store requires a SparkSession for the spark_hive backend")
-    store = SparkHiveSpecStore(spark=spark, database=cfg["database"])
-    store.ensure_tables()
-    return store
+    raw = os.environ.get("CAUSALOPS_STORE_CONFIG")
+    if raw:
+        cfg = json.loads(raw)
+    else:
+        cfg = {"backend": "json_file", "path": str(default_registry_json_path())}
+    backend = cfg.get("backend", "json_file")
+    if backend == "json_file":
+        return JsonFileSpecStore(path=cfg["path"])
+    raise ValueError(f"unsupported backend {backend!r}")

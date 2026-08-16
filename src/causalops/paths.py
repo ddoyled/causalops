@@ -1,9 +1,10 @@
-"""Default filesystem locations for local Spark state.
+"""Default filesystem locations for local dev state.
 
-The CLI and seed script both need a stable default for the warehouse and
-metastore. Anchoring them to the repo root (rather than `~/.causalops`) keeps
-each checkout self-contained: `git clean -fdx` or deleting the repo drops the
-local state with it, and multiple checkouts don't share a warehouse.
+The CLI and seed script both need stable defaults for the registry file and
+the mock Parquet data. Anchoring them under `<repo>/.causalops/` (rather
+than `~/.causalops/`) keeps each checkout self-contained: `git clean -fdx`
+or deleting the repo drops the local state with it, and multiple checkouts
+don't share a registry.
 """
 
 from __future__ import annotations
@@ -20,9 +21,11 @@ def find_repo_root(start: Path | None = None) -> Path:
     return Path.cwd().resolve()
 
 
-def default_warehouse_dir() -> Path:
-    return find_repo_root() / ".causalops" / "warehouse"
+def default_data_dir() -> Path:
+    """Where the seed script writes mock Parquet tables (and where specs point)."""
+    return find_repo_root() / ".causalops" / "data"
 
 
-def default_metastore_dir() -> Path:
-    return find_repo_root() / ".causalops" / "metastore_db"
+def default_registry_json_path() -> Path:
+    """Where the JSON-file SpecStore keeps its registrations + status log."""
+    return find_repo_root() / ".causalops" / "registry.json"

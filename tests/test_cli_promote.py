@@ -4,13 +4,12 @@ from click.testing import CliRunner
 
 from causalops.cli import cli
 from causalops.store.base import Status
-from causalops.store.spark_hive import SparkHiveSpecStore
+from causalops.store.json_file import JsonFileSpecStore
 from tests.fixtures import sample_spec
 
 
-def _seed(spark, db, *versions):
-    store = SparkHiveSpecStore(spark=spark, database=db)
-    store.ensure_tables()
+def _seed(tmp_path, *versions):
+    store = JsonFileSpecStore(path=tmp_path / "registry.json")
     for v in versions:
         store.put(
             sample_spec(version=v),
@@ -23,19 +22,14 @@ def _seed(spark, db, *versions):
     return store
 
 
-def _invoke_promote(spark, store, args):
+def _invoke_promote(store, args):
     runner = CliRunner()
-    return runner.invoke(
-        cli,
-        ["promote", *args],
-        obj={"spark": spark, "store": store},
-    )
+    return runner.invoke(cli, ["promote", *args], obj={"store": store})
 
 
-def test_promote_to_challenger(spark, registry_db):
-    store = _seed(spark, registry_db, "3.0.0")
+def test_promote_to_challenger(tmp_path):
+    store = _seed(tmp_path, "3.0.0")
     result = _invoke_promote(
-        spark,
         store,
         [
             "--family",
@@ -52,10 +46,9 @@ def test_promote_to_challenger(spark, registry_db):
     assert store.current_status("uplift", "3.0.0") == Status.CHALLENGER
 
 
-def test_promote_to_production_atomically_retires_prior(spark, registry_db):
-    store = _seed(spark, registry_db, "3.0.0", "3.1.0")
+def test_promote_to_production_atomically_retires_prior(tmp_path):
+    store = _seed(tmp_path, "3.0.0", "3.1.0")
     _invoke_promote(
-        spark,
         store,
         [
             "--family",
@@ -69,7 +62,6 @@ def test_promote_to_production_atomically_retires_prior(spark, registry_db):
         ],
     )
     result = _invoke_promote(
-        spark,
         store,
         [
             "--family",
@@ -89,11 +81,10 @@ def test_promote_to_production_atomically_retires_prior(spark, registry_db):
     assert prods == ["3.1.0"]
 
 
-def test_promote_from_retired_requires_reactivate_flag(spark, registry_db):
-    store = _seed(spark, registry_db, "3.0.0")
+def test_promote_from_retired_requires_reactivate_flag(tmp_path):
+    store = _seed(tmp_path, "3.0.0")
     store.promote("uplift", "3.0.0", Status.RETIRED, assigned_by="bob")
     result = _invoke_promote(
-        spark,
         store,
         [
             "--family",
@@ -109,7 +100,6 @@ def test_promote_from_retired_requires_reactivate_flag(spark, registry_db):
     assert result.exit_code != 0
     assert "reactivate" in result.output
     ok = _invoke_promote(
-        spark,
         store,
         [
             "--family",

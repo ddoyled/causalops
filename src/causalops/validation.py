@@ -10,6 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
+from causalops.data_source import read_result_table
 from causalops.spec import ModelSpec
 
 if TYPE_CHECKING:
@@ -46,7 +47,8 @@ def validate_against_uc(spec: ModelSpec, *, spark: SparkSession) -> ValidationRe
     for table in spec.tables:
         try:
             actual = {
-                f.name: f.dataType.simpleString() for f in spark.table(table.path).schema.fields
+                f.name: f.dataType.simpleString()
+                for f in read_result_table(spark, table.path).schema.fields
             }
         except Exception:
             report.warnings.append(f"{table.path} does not exist yet (first registration?)")

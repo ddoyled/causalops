@@ -7,13 +7,10 @@ import sys
 from pathlib import Path
 
 import click
-from delta.tables import DeltaTable
-from pyspark.sql import functions as F
 
 from causalops import ModelSpec, __version__
-from causalops.paths import default_metastore_dir, default_warehouse_dir
-from causalops.spark_session import build_local_spark_session
 from causalops.store import get_store
+from causalops.store.json_file import JsonFileSpecStore
 from causalops.validation import validate_against_uc
 
 
@@ -33,39 +30,25 @@ def _load_spec(spec_path: Path) -> ModelSpec:
     return module.spec
 
 
+def _build_spark():
+    """Lazy import — only `register` needs Spark (for validation)."""
+    from causalops.spark_session import build_local_spark_session
+
+    return build_local_spark_session(app_name="causalops_cli")
+
+
 @click.group()
 @click.version_option(__version__)
-@click.option(
-    "--warehouse-dir",
-    type=click.Path(path_type=Path),
-    default=default_warehouse_dir(),
-    envvar="CAUSALOPS_WAREHOUSE_DIR",
-    show_default=True,
-)
-@click.option(
-    "--metastore-dir",
-    type=click.Path(path_type=Path),
-    default=default_metastore_dir(),
-    envvar="CAUSALOPS_METASTORE_DIR",
-    show_default=True,
-)
 @click.pass_context
-def cli(ctx: click.Context, warehouse_dir: Path, metastore_dir: Path) -> None:
+def cli(ctx: click.Context) -> None:
     """causalops CLI.
 
-    Tests can inject a pre-built Spark session and store by passing
-    `obj={"spark": ..., "store": ...}` to `CliRunner.invoke`, in which case
-    the flags are ignored.
+    Tests can inject a pre-built store (and, for `register`, a Spark session)
+    by passing `obj={"store": ..., "spark": ...}` to `CliRunner.invoke`.
     """
     ctx.ensure_object(dict)
-    if "spark" not in ctx.obj:
-        ctx.obj["spark"] = build_local_spark_session(
-            warehouse_dir=warehouse_dir,
-            metastore_dir=metastore_dir,
-            app_name="causalops_cli",
-        )
     if "store" not in ctx.obj:
-        ctx.obj["store"] = get_store(ctx.obj["spark"])
+        ctx.obj["store"] = get_store()
 
 
 @cli.command()
@@ -85,7 +68,7 @@ def cli(ctx: click.Context, warehouse_dir: Path, metastore_dir: Path) -> None:
 @click.pass_context
 def register(ctx, spec_path, git_repo, git_tag, git_sha, registered_by, force):
     """Register a ModelSpec from a local model_spec.py."""
-    spark, store = ctx.obj["spark"], ctx.obj["store"]
+    store = ctx.obj["store"]
 
     spec = _load_spec(spec_path)
 
@@ -95,6 +78,7 @@ def register(ctx, spec_path, git_repo, git_tag, git_sha, registered_by, force):
             f"Git tag {git_tag!r} does not match spec version (expected {expected_tag!r})"
         )
 
+    spark = ctx.obj.get("spark") or _build_spark()
     report = validate_against_uc(spec, spark=spark)
     if report.has_errors:
         click.echo(report.format(), err=True)
@@ -102,18 +86,20 @@ def register(ctx, spec_path, git_repo, git_tag, git_sha, registered_by, force):
     if report.has_warnings:
         click.echo(report.format_warnings(), err=True)
 
-    if store.exists(spec.family, spec.version) and not force:
-        raise click.ClickException(
-            f"{spec.family}@{spec.version} already registered. Use --force to overwrite."
-        )
-    if store.exists(spec.family, spec.version) and force:
-        # --force is best-effort for the POC: SparkHiveSpecStore.put refuses
-        # duplicates, so drop the prior registration row first. Idempotency
-        # policy can tighten later.
+    if store.exists(spec.family, spec.version):
+        if not force:
+            raise click.ClickException(
+                f"{spec.family}@{spec.version} already registered. Use --force to overwrite."
+            )
         click.echo(f"warning: --force overwrite of {spec.family}@{spec.version}", err=True)
-        DeltaTable.forName(spark, f"{store.database}.registrations").delete(
-            (F.col("family") == spec.family) & (F.col("version") == spec.version)
-        )
+        # --force is best-effort for the POC: drop the prior registration row
+        # so put() can insert a fresh one. Status history is preserved.
+        if isinstance(store, JsonFileSpecStore):
+            store.delete(spec.family, spec.version)
+        else:
+            raise click.ClickException(
+                f"--force is not supported for store backend {type(store).__name__!r}"
+            )
 
     reg = store.put(
         spec,

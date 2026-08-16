@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 
 from pyspark.sql import functions as F
 
+from causalops.data_source import read_result_table
 from causalops.spec import ModelSpec, Table
 
 if TYPE_CHECKING:
@@ -34,7 +35,7 @@ def plan_for_spec(
     for tbl, cols in by_table.items():
         select = [F.col(tbl.key).alias(spec.measurement_key)]
         select += [F.col(col).alias(canonical) for canonical, col in cols]
-        per_table.append(spark.table(tbl.path).select(*select))
+        per_table.append(read_result_table(spark, tbl.path).select(*select))
 
     joined = per_table[0]
     for df in per_table[1:]:

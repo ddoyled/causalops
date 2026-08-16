@@ -1,6 +1,14 @@
-"""Example model_spec.py — imported by the register CLI at tag time."""
+"""Example model_spec.py — imported by the register CLI at tag time.
+
+Table paths point at the local Parquet files produced by `scripts/seed_examples.py`.
+When lifting to Databricks, swap these for UC identifiers, e.g.
+`"main.uplift.shared_v3"`.
+"""
 
 from causalops import Metric, ModelSpec, Table
+from causalops.paths import default_data_dir
+
+_UPLIFT = default_data_dir() / "uplift"
 
 spec = ModelSpec(
     family="uplift",
@@ -9,7 +17,7 @@ spec = ModelSpec(
     tables=[
         Table(
             name="shared",
-            path="uplift.shared_v3",
+            path=str(_UPLIFT / "shared_v3.parquet"),
             key="experiment_id",
             metrics=[
                 Metric(name="treatment_effect", column="ate", dtype="double", aliases=["te"]),
@@ -19,7 +27,7 @@ spec = ModelSpec(
         ),
         Table(
             name="heterogeneity",
-            path="uplift.het_v3",
+            path=str(_UPLIFT / "het_v3.parquet"),
             key="experiment_id",
             metrics=[
                 Metric(
