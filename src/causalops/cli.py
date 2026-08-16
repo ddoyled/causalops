@@ -113,6 +113,31 @@ def register(ctx, spec_path, git_repo, git_tag, git_sha, registered_by, force):
 
 
 @cli.command()
+@click.option(
+    "--spec-path",
+    type=click.Path(exists=True, path_type=Path),
+    default=Path("model_spec.py"),
+    show_default=True,
+)
+@click.pass_context
+def validate(ctx, spec_path):
+    """Dry-run schema check for a ModelSpec (no registration).
+
+    Warnings (missing tables) print to stderr and exit 0. Errors (missing
+    columns, dtype mismatches) print to stderr and exit non-zero.
+    """
+    spec = _load_spec(spec_path)
+    spark = ctx.obj.get("spark") or _build_spark()
+    report = validate_against_uc(spec, spark=spark)
+    if report.has_errors:
+        click.echo(report.format(), err=True)
+        raise click.ClickException("validation failed")
+    if report.has_warnings:
+        click.echo(report.format_warnings(), err=True)
+    click.echo(f"ok: {spec.family}@{spec.version}")
+
+
+@cli.command()
 @click.option("--family", required=True)
 @click.option("--version", required=True)
 @click.option(
