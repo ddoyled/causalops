@@ -12,15 +12,12 @@ import pandas as pd
 
 from causalops import Metric, ModelSpec, Table
 
-from ..utils import run_dates as _run_dates
 from ..utils import write_parquet
 
-_N_ROWS = 100
 
-
-def _scm_spec(data_dir: Path, version: str) -> ModelSpec:
-    results_path = data_dir / "scm" / "results_v1.parquet"
-    metrics_path = data_dir / "scm" / "metrics_v1.parquet"
+def scm_spec(data_dir: Path, version: str) -> ModelSpec:
+    results_path = data_dir / "scm" / f"results_v{version}.parquet"
+    metrics_path = data_dir / "scm" / f"metrics_v{version}.parquet"
     return ModelSpec(
         family="scm",
         version=version,
@@ -89,7 +86,14 @@ def _scm_spec(data_dir: Path, version: str) -> ModelSpec:
     )
 
 
-def seed_scm_model(data_dir: Path) -> None:
+def seed_scm_model(
+    data_dir: Path,
+    version: str,
+    run_dates: list[str],
+    *,
+    channel_id: str | None = None,
+    seed: int = 17,
+) -> None:
     """Mock tables for a synthetic-control model (SCM) example.
 
     Referenced tables:
@@ -114,29 +118,31 @@ def seed_scm_model(data_dir: Path) -> None:
         absolute_ess                               : double
         smd_feature_pre_period_upc_purchases_L3M   : double
     """
-    rng = np.random.default_rng(seed=17)
-    rids = [f"scm_{i:03d}" for i in range(1, _N_ROWS + 1)]
-    run_ids = [f"run_{i:04d}" for i in rng.integers(1000, 9999, size=_N_ROWS)]
-    run_dates = _run_dates(_N_ROWS)
+    n = len(run_dates)
+    rng = np.random.default_rng(seed=seed)
+    rids = [f"scm_{i:03d}" for i in range(1, n + 1)]
+    run_ids = [f"run_{i:04d}" for i in rng.integers(1000, 9999, size=n)]
+    channel_col = {"channel_id": [channel_id] * n} if channel_id is not None else {}
 
-    totals = rng.normal(loc=100_000, scale=15_000, size=_N_ROWS)
-    incremental = rng.normal(loc=8_000, scale=2_000, size=_N_ROWS)
-    ci_half = rng.uniform(500, 2_000, size=_N_ROWS)
+    totals = rng.normal(loc=100_000, scale=15_000, size=n)
+    incremental = rng.normal(loc=8_000, scale=2_000, size=n)
+    ci_half = rng.uniform(500, 2_000, size=n)
     write_parquet(
         pd.DataFrame(
             {
                 "rid": rids,
                 "run_date": run_dates,
                 "run_id": run_ids,
+                **channel_col,
                 "treatment_target_total": totals,
                 "treatment_target_incremental": incremental,
                 "treatment_target_incremental_percentage": incremental / totals,
-                "treatment_target_coeff": rng.uniform(0.6, 1.2, size=_N_ROWS),
+                "treatment_target_coeff": rng.uniform(0.6, 1.2, size=n),
                 "treatment_target_ci_hi": incremental + ci_half,
                 "treatment_target_ci_lo": incremental - ci_half,
             }
         ),
-        data_dir / "scm" / "results_v1.parquet",
+        data_dir / "scm" / f"results_v{version}.parquet",
     )
 
     write_parquet(
@@ -145,11 +151,12 @@ def seed_scm_model(data_dir: Path) -> None:
                 "rid": rids,
                 "run_date": run_dates,
                 "run_id": run_ids,
-                "treatment_ess_ratio": rng.uniform(0.5, 1.0, size=_N_ROWS),
-                "control_ess_ratio": rng.uniform(0.5, 1.0, size=_N_ROWS),
-                "absolute_ess": rng.uniform(50, 500, size=_N_ROWS),
-                "smd_feature_pre_period_upc_purchases_L3M": rng.normal(0, 0.1, size=_N_ROWS),
+                **channel_col,
+                "treatment_ess_ratio": rng.uniform(0.5, 1.0, size=n),
+                "control_ess_ratio": rng.uniform(0.5, 1.0, size=n),
+                "absolute_ess": rng.uniform(50, 500, size=n),
+                "smd_feature_pre_period_upc_purchases_L3M": rng.normal(0, 0.1, size=n),
             }
         ),
-        data_dir / "scm" / "metrics_v1.parquet",
+        data_dir / "scm" / f"metrics_v{version}.parquet",
     )

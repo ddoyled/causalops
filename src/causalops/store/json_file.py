@@ -115,12 +115,22 @@ class JsonFileSpecStore(SpecStore):
 
     # --- registrations -------------------------------------------------------
 
-    def put(self, spec, *, git_repo, git_tag, git_sha, registered_by, sdk_version):
+    def put(
+        self,
+        spec,
+        *,
+        git_repo,
+        git_tag,
+        git_sha,
+        registered_by,
+        sdk_version,
+        registered_at=None,
+    ):
         data = self._load()
         for r in data["registrations"]:
             if r["family"] == spec.family and r["version"] == spec.version:
                 raise KeyError(f"{spec.family}@{spec.version} already registered")
-        now = datetime.now(UTC)
+        now = registered_at if registered_at is not None else datetime.now(UTC)
         data["registrations"].append(
             {
                 "family": spec.family,
@@ -192,7 +202,17 @@ class JsonFileSpecStore(SpecStore):
 
     # --- status --------------------------------------------------------------
 
-    def promote(self, family, version, status, *, assigned_by, note="", reactivate=False):
+    def promote(
+        self,
+        family,
+        version,
+        status,
+        *,
+        assigned_by,
+        note="",
+        reactivate=False,
+        effective_from=None,
+    ):
         data = self._load()
         if not any(
             r["family"] == family and r["version"] == version for r in data["registrations"]
@@ -203,7 +223,7 @@ class JsonFileSpecStore(SpecStore):
         if current == Status.RETIRED and not reactivate:
             raise ValueError(f"{family}@{version} is retired; pass reactivate=True to un-retire")
 
-        now = datetime.now(UTC)
+        now = effective_from if effective_from is not None else datetime.now(UTC)
         new_events = [_new_status_event(family, version, status, assigned_by, note, now)]
 
         if status == Status.PRODUCTION:
@@ -267,14 +287,18 @@ class JsonFileSpecStore(SpecStore):
         *,
         as_of: datetime | None = None,
     ) -> Status:
+        # Track the append index so equal timestamps tie-break by write order
+        # — the status_log is append-only, so index == chronological order.
         matches = [
-            e for e in data["status_log"] if e["family"] == family and e["version"] == version
+            (i, e)
+            for i, e in enumerate(data["status_log"])
+            if e["family"] == family and e["version"] == version
         ]
         if as_of is not None:
-            matches = [e for e in matches if _parse_iso(e["effective_from"]) <= as_of]
+            matches = [(i, e) for i, e in matches if _parse_iso(e["effective_from"]) <= as_of]
         if not matches:
             raise KeyError(f"{family}@{version} has no status events at or before as_of")
-        latest = max(matches, key=lambda e: _parse_iso(e["effective_from"]))
+        _, latest = max(matches, key=lambda ie: (_parse_iso(ie[1]["effective_from"]), ie[0]))
         return Status(latest["status"])
 
     def _by_status_from(

@@ -71,8 +71,13 @@ class SpecStore(ABC):
         git_sha: str,
         registered_by: str,
         sdk_version: str,
+        registered_at: datetime | None = None,
     ) -> Registration:
         """Insert a registration and its initial `experiment` status event.
+
+        `registered_at` is the timestamp stamped on both the registration and
+        its initial status event; defaults to `datetime.now(UTC)`. Overriding
+        it lets seed scripts align the status log with a mock timeline.
 
         Raises `KeyError` if (family, version) already exists (callers use
         `exists` first when they want to expose a --force flag)."""
@@ -101,11 +106,15 @@ class SpecStore(ABC):
         assigned_by: str,
         note: str = "",
         reactivate: bool = False,
+        effective_from: datetime | None = None,
     ) -> None:
         """Append a status event. Enforces:
 
         - `production` promotion is atomic with retirement of the current prod.
         - Un-retiring (retired -> anything) requires `reactivate=True`.
+
+        `effective_from` stamps the new status event (and any auto-retire it
+        cascades in the same commit); defaults to `datetime.now(UTC)`.
         """
 
     @abstractmethod

@@ -11,18 +11,13 @@ import numpy as np
 import pandas as pd
 
 from causalops import Metric, ModelSpec, Table
-from causalops.paths import default_data_dir
 
-from ..utils import run_dates as _run_dates
 from ..utils import write_parquet
 
-_UPLIFT = default_data_dir() / "uplift"
-_N_ROWS = 100
 
-
-def _bsts_spec(data_dir: Path, version: str) -> ModelSpec:
-    results_path = data_dir / "bsts" / "results_v1.parquet"
-    metrics_path = data_dir / "bsts" / "metrics_v1.parquet"
+def bsts_spec(data_dir: Path, version: str) -> ModelSpec:
+    results_path = data_dir / "bsts" / f"results_v{version}.parquet"
+    metrics_path = data_dir / "bsts" / f"metrics_v{version}.parquet"
     return ModelSpec(
         family="bsts",
         version=version,
@@ -116,7 +111,14 @@ def _bsts_spec(data_dir: Path, version: str) -> ModelSpec:
     )
 
 
-def seed_bsts_model(data_dir: Path) -> None:
+def seed_bsts_model(
+    data_dir: Path,
+    version: str,
+    run_dates: list[str],
+    *,
+    channel_id: str | None = None,
+    seed: int = 91,
+) -> None:
     """Mock tables for a Bayesian structural time-series (BSTS) example.
 
     Referenced tables:
@@ -138,20 +140,22 @@ def seed_bsts_model(data_dir: Path) -> None:
         seasonality_impact_p50           : double
         ...
     """
-    rng = np.random.default_rng(seed=91)
-    rids = [f"bsts_{i:03d}" for i in range(1, _N_ROWS + 1)]
-    run_ids = [f"run_{i:04d}" for i in rng.integers(1000, 9999, size=_N_ROWS)]
-    run_dates = _run_dates(_N_ROWS)
+    n = len(run_dates)
+    rng = np.random.default_rng(seed=seed)
+    rids = [f"bsts_{i:03d}" for i in range(1, n + 1)]
+    run_ids = [f"run_{i:04d}" for i in rng.integers(1000, 9999, size=n)]
+    channel_col = {"channel_id": [channel_id] * n} if channel_id is not None else {}
 
-    totals = rng.normal(loc=100_000, scale=15_000, size=_N_ROWS)
-    incremental = rng.normal(loc=6_500, scale=1_500, size=_N_ROWS)
-    ci_half = rng.uniform(400, 1_500, size=_N_ROWS)
+    totals = rng.normal(loc=100_000, scale=15_000, size=n)
+    incremental = rng.normal(loc=6_500, scale=1_500, size=n)
+    ci_half = rng.uniform(400, 1_500, size=n)
     write_parquet(
         pd.DataFrame(
             {
                 "rid": rids,
                 "run_date": run_dates,
                 "run_id": run_ids,
+                **channel_col,
                 "observed_target_total": totals,
                 "observed_target_incremental": incremental,
                 "observed_target_incremental_percentage": incremental / totals,
@@ -159,12 +163,12 @@ def seed_bsts_model(data_dir: Path) -> None:
                 "observed_target_ci_lo": incremental - ci_half,
             }
         ),
-        data_dir / "bsts" / "results_v1.parquet",
+        data_dir / "bsts" / f"results_v{version}.parquet",
     )
 
     def _band(loc: float, scale: float) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-        p50 = rng.normal(loc=loc, scale=scale, size=_N_ROWS)
-        half = rng.uniform(scale * 0.5, scale * 1.5, size=_N_ROWS)
+        p50 = rng.normal(loc=loc, scale=scale, size=n)
+        half = rng.uniform(scale * 0.5, scale * 1.5, size=n)
         return p50 - half, p50, p50 + half
 
     seasonality_lo, seasonality_p50, seasonality_hi = _band(0.02, 0.005)
@@ -177,6 +181,7 @@ def seed_bsts_model(data_dir: Path) -> None:
                 "rid": rids,
                 "run_date": run_dates,
                 "run_id": run_ids,
+                **channel_col,
                 "seasonality_impact_p50": seasonality_p50,
                 "seasonality_impact_p025": seasonality_lo,
                 "seasonality_impact_p975": seasonality_hi,
@@ -188,5 +193,5 @@ def seed_bsts_model(data_dir: Path) -> None:
                 "category_purchases_impact_p975": category_hi,
             }
         ),
-        data_dir / "bsts" / "metrics_v1.parquet",
+        data_dir / "bsts" / f"metrics_v{version}.parquet",
     )

@@ -1,38 +1,41 @@
-"""keystone.py — cross-family demo.
+"""keystone.py — production-collection demo.
 
-Shows how a consumer of `causalops` can:
+Assumes ``python scripts/seed_examples.py`` has already populated the
+local warehouse and registry with the shadow-deployment scenarios (one
+per family, each on its own channel). This script is a pure consumer.
 
-1. Discover the latest registered version of two model families
-   (`scm` and `bsts`).
-2. Query both for a set of overlapping metrics.
-3. Combine the results into one Spark DataFrame, tagging each row
-   with the model family and version it came from.
+Shows how a downstream production process would build a
+"production-of-record" table by walking the registry:
 
-The two families store different physical columns for the same
-conceptual metric — `treatment_target_incremental` in scm vs.
-`observed_target_incremental` in bsts. Their `ModelSpec`s alias
-each physical column to a shared canonical name, so the consumer
-queries the canonical name and never sees the difference.
+1. For each family, derive each version's production window(s) from its
+   status log — a window opens on ``PRODUCTION`` and closes on
+   ``RETIRED``. During shadow overlap, the challenger's rows are
+   ignored; the still-in-prod version's rows are what count.
+2. For each window, pull that version's results within its ``run_date``
+   range and alias the physical metric columns to their canonical names.
+3. Union across families, tagging every row with ``family``, ``version``,
+   and (carried forward from the parquet) ``channel_id``.
 
-Run it from the repo root:
+Result: one row per (family, version, channel_id, rid, run_date) with
+the overlapping metric columns. Run it from the repo root:
 
     python examples/keystone.py
-
-The script seeds mock parquet data and registers the specs on
-first run; subsequent runs skip both.
 """
 
 from __future__ import annotations
 
-from examples.models.bsts import _bsts_spec, seed_bsts_model
-from examples.models.scm import _scm_spec, seed_scm_model
+from functools import reduce
+
+from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as F
 
-from causalops import RegistryClient, __version__
-from causalops.paths import default_data_dir
+from causalops import RegistryClient
 from causalops.spark_session import build_local_spark_session
-from causalops.store import SpecStore, get_store
+from causalops.store import Status, get_store
+from causalops.store.base import SpecStore
 
+# Canonical metric names both scm and bsts expose (aliased to different
+# physical columns in each family's spec).
 OVERLAPPING_METRICS = [
     "target_total",
     "target_incremental",
@@ -41,96 +44,99 @@ OVERLAPPING_METRICS = [
     "target_ci_lo",
 ]
 
-
-def _semver_key(v: str) -> tuple[int, ...]:
-    return tuple(int(p) for p in v.split("."))
-
-
-def latest_version(client: RegistryClient, family: str) -> str:
-    versions = client.list_versions(family)
-    if not versions:
-        raise LookupError(f"no registered versions for family {family!r}")
-    return max(versions, key=_semver_key)
+# Families that carry a channel_id dimension. Uplift lives outside this
+# demo — it isn't per-channel.
+CHANNEL_FAMILIES = ["scm", "bsts"]
 
 
-def combined_latest(
-    client: RegistryClient,
-    families: list[str],
+def production_windows(store: SpecStore, family: str) -> list[tuple[str, str, str | None]]:
+    """Return ``[(version, start_iso, end_iso_or_None), ...]`` for each production stint.
+
+    Walks the family's status log: a version's production window opens
+    on its ``PRODUCTION`` event and closes on the subsequent ``RETIRED``
+    event (or stays open if never retired). A version can have multiple
+    stints if it's re-promoted after retirement.
+    """
+    windows: list[tuple[str, str, str | None]] = []
+    for version in store.list_versions(family):
+        events = sorted(store.history(family, version), key=lambda e: e.effective_from)
+        prod_start = None
+        for e in events:
+            if e.status == Status.PRODUCTION and prod_start is None:
+                prod_start = e.effective_from
+            elif e.status == Status.RETIRED and prod_start is not None:
+                windows.append(
+                    (version, prod_start.date().isoformat(), e.effective_from.date().isoformat())
+                )
+                prod_start = None
+        if prod_start is not None:
+            windows.append((version, prod_start.date().isoformat(), None))
+    return windows
+
+
+def collect_production_results(
+    spark: SparkSession,
+    store: SpecStore,
+    family: str,
     metrics: list[str],
-):
-    """Union the latest version of each family, tagging rows with family + version."""
-    parts = []
-    for family in families:
-        version = latest_version(client, family)
+) -> DataFrame:
+    """Union each production window's rows for ``family``, aliased to canonical metric names."""
+    parts: list[DataFrame] = []
+    for version, start, end in production_windows(store, family):
+        spec = store.get(family, version).spec
+        tables = {spec.resolve_metric(m)[0] for m in metrics}
+        if len(tables) != 1:
+            raise ValueError(
+                f"{family}: metrics {metrics} span multiple tables — this demo assumes a single results table"
+            )
+        (table,) = tables
+
+        selects = [
+            F.col(table.key).alias(spec.measurement_key),
+            F.col("run_date"),
+            F.col("channel_id"),
+        ]
+        for m in metrics:
+            _, canonical, physical = spec.resolve_metric(m)
+            selects.append(F.col(physical).alias(canonical))
+
         df = (
-            client.get_results(family=family, version=version, metrics=metrics)
+            spark.read.parquet(table.path)
+            .select(*selects)
+            .filter(F.col("run_date") >= start)
             .withColumn("family", F.lit(family))
             .withColumn("version", F.lit(version))
         )
+        if end is not None:
+            df = df.filter(F.col("run_date") < end)
         parts.append(df)
-
-    combined = parts[0]
-    for df in parts[1:]:
-        combined = combined.unionByName(df, allowMissingColumns=True)
-    return combined
-
-
-def _bootstrap(store: SpecStore) -> None:
-    """Seed parquet + register two versions of each family, if missing.
-
-    Registering 1.0.0 and 1.1.0 makes `latest_version` a meaningful pick
-    rather than the only pick. Both versions point at the same parquet
-    file, which is fine — the demo is about the discovery API, not real
-    version drift.
-    """
-    data_dir = default_data_dir()
-    if not (data_dir / "scm" / "results_v1.parquet").exists():
-        seed_scm_model(data_dir)
-    if not (data_dir / "bsts" / "results_v1.parquet").exists():
-        seed_bsts_model(data_dir)
-
-    specs = [
-        _scm_spec(data_dir, "1.0.0"),
-        _scm_spec(data_dir, "1.1.0"),
-        _bsts_spec(data_dir, "1.0.0"),
-        _bsts_spec(data_dir, "1.1.0"),
-    ]
-    for spec in specs:
-        if store.exists(spec.family, spec.version):
-            continue
-        store.put(
-            spec,
-            git_repo="local/keystone-demo",
-            git_tag=f"v{spec.version}",
-            git_sha="0" * 40,
-            registered_by="keystone-demo",
-            sdk_version=__version__,
-        )
+    return reduce(lambda a, b: a.unionByName(b, allowMissingColumns=True), parts)
 
 
 def main() -> None:
     spark = build_local_spark_session()
     store = get_store()
-    _bootstrap(store)
-
     client = RegistryClient(store=store, spark=spark)
 
-    for family in ("scm", "bsts"):
-        print(
-            f"{family}: registered versions = {client.list_versions(family)}, "
-            f"latest = {latest_version(client, family)}"
-        )
+    for family in CHANNEL_FAMILIES:
+        if not client.list_versions(family):
+            raise SystemExit(
+                f"registry has no {family!r} versions — run `python scripts/seed_examples.py` first"
+            )
 
-    combined = combined_latest(
-        client,
-        families=["scm", "bsts"],
-        metrics=OVERLAPPING_METRICS,
-    )
+    print("Production windows per family:")
+    for family in CHANNEL_FAMILIES:
+        for version, start, end in production_windows(store, family):
+            print(f"  {family:8s}  v{version}  {start} .. {end or '(open)'}")
+
+    parts = [
+        collect_production_results(spark, store, f, OVERLAPPING_METRICS) for f in CHANNEL_FAMILIES
+    ]
+    combined = reduce(lambda a, b: a.unionByName(b, allowMissingColumns=True), parts)
 
     print()
-    print("Combined overlapping metrics from latest scm + bsts:")
-    combined.show(10, truncate=False)
-    print(f"total rows: {combined.count()}")
+    print(f"Production-of-record table ({combined.count()} rows):")
+    combined.orderBy("family", "channel_id", "run_date", "rid").show(20, truncate=False)
 
 
 if __name__ == "__main__":
