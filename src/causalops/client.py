@@ -22,16 +22,49 @@ class RegistryClient:
     # ---- discovery ----------------------------------------------------------
 
     def list_families(self) -> list[str]:
+        """Return all registered family names."""
         return self.store.list_families()
 
     def list_versions(self, family: str) -> list[str]:
+        """Return all registered versions for ``family``."""
         return self.store.list_versions(family)
 
     def describe(self, family: str, version: str) -> Registration:
+        """Return the full registration record for one (family, version)."""
         return self.store.get(family, version)
 
     def history(self, family: str, version: str) -> list[StatusEvent]:
+        """Return the status-event log for one (family, version)."""
         return self.store.history(family, version)
+
+    # ---- production windows --------------------------------------------------
+
+    def production_windows(self, family: str) -> list[tuple[str, str, str | None]]:
+        """Return ``[(version, start_iso, end_iso_or_None), ...]`` for each production stint.
+
+        A version's production window opens on its ``PRODUCTION`` event and
+        closes on the subsequent ``RETIRED`` event (or stays open if never
+        retired).
+        """
+        windows: list[tuple[str, str, str | None]] = []
+        for version in self.store.list_versions(family):
+            events = sorted(self.store.history(family, version), key=lambda e: e.effective_from)
+            prod_start = None
+            for e in events:
+                if e.status == Status.PRODUCTION and prod_start is None:
+                    prod_start = e.effective_from
+                elif e.status == Status.RETIRED and prod_start is not None:
+                    windows.append(
+                        (
+                            version,
+                            prod_start.date().isoformat(),
+                            e.effective_from.date().isoformat(),
+                        )
+                    )
+                    prod_start = None
+            if prod_start is not None:
+                windows.append((version, prod_start.date().isoformat(), None))
+        return windows
 
     # ---- query --------------------------------------------------------------
 
@@ -44,6 +77,12 @@ class RegistryClient:
         status: str | list[str] | None = None,
         as_of: datetime | str | None = None,
     ) -> DataFrame:
+        """Query metric results for a family, resolved to canonical column names.
+
+        Select versions by explicit ``version`` or by ``status`` (not both).
+        When multiple versions match, rows are unioned with a ``version`` tag.
+        ``as_of`` narrows status lookups to a point in time.
+        """
         if version is not None and status is not None:
             raise ValueError("pass either `version` or `status`, not both")
         if version is None and status is None:

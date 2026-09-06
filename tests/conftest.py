@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import pytest
 
-from causalops.spark_session import build_local_spark_session
+from causalops.utils import build_local_spark_session
 
 
 @pytest.fixture(scope="session")

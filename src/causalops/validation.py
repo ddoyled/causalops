@@ -10,8 +10,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
-from causalops.data_source import read_result_table
 from causalops.spec import ModelSpec
+from causalops.utils import read_table
 
 if TYPE_CHECKING:
     from pyspark.sql import SparkSession
@@ -19,18 +19,23 @@ if TYPE_CHECKING:
 
 @dataclass
 class ValidationReport:
+    """Accumulated errors and warnings from validating a spec against live tables."""
+
     errors: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
 
     @property
     def has_errors(self) -> bool:
+        """True if any hard errors (missing columns, dtype mismatches) were found."""
         return bool(self.errors)
 
     @property
     def has_warnings(self) -> bool:
+        """True if any warnings (e.g. table not yet created) were found."""
         return bool(self.warnings)
 
     def format(self) -> str:
+        """Render all errors and warnings as a human-readable string."""
         parts = []
         if self.errors:
             parts.append("Errors:\n  " + "\n  ".join(self.errors))
@@ -39,6 +44,7 @@ class ValidationReport:
         return "\n".join(parts)
 
     def format_warnings(self) -> str:
+        """Render only warnings as a human-readable string."""
         return "Warnings:\n  " + "\n  ".join(self.warnings)
 
 
@@ -48,7 +54,7 @@ def validate_against_uc(spec: ModelSpec, *, spark: SparkSession) -> ValidationRe
         try:
             actual = {
                 f.name: f.dataType.simpleString()
-                for f in read_result_table(spark, table.path).schema.fields
+                for f in read_table(spark, table.path).schema.fields
             }
         except Exception:
             report.warnings.append(f"{table.path} does not exist yet (first registration?)")

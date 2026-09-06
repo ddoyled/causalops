@@ -32,7 +32,7 @@ def _load_spec(spec_path: Path) -> ModelSpec:
 
 def _build_spark():
     """Lazy import — only `register` needs Spark (for validation)."""
-    from causalops.spark_session import build_local_spark_session
+    from causalops.utils import build_local_spark_session
 
     return build_local_spark_session(app_name="causalops_cli")
 

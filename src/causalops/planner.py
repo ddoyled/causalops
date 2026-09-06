@@ -8,8 +8,8 @@ from typing import TYPE_CHECKING
 
 from pyspark.sql import functions as F
 
-from causalops.data_source import read_result_table
 from causalops.spec import ModelSpec, Table
+from causalops.utils import read_table
 
 if TYPE_CHECKING:
     from pyspark.sql import DataFrame, SparkSession
@@ -20,22 +20,34 @@ def plan_for_spec(
     spec: ModelSpec,
     *,
     metrics: Iterable[str],
+    include_columns: Iterable[str] = (),
 ) -> DataFrame:
     """Resolve requested metric names against one spec and return a joined DataFrame.
 
     Group requested names by their owning table, select physical columns aliased
     to their canonical names, then outer-join across tables on the measurement key.
+
+    ``include_columns`` are extra physical columns (e.g. ``run_date``,
+    ``channel_id``) passed through from the first table that contains them.
     """
     by_table: dict[Table, list[tuple[str, str]]] = defaultdict(list)
     for name in metrics:
         tbl, canonical, column = spec.resolve_metric(name)
         by_table[tbl].append((canonical, column))
 
+    extra = list(include_columns)
+    extras_placed = False
+
     per_table: list[DataFrame] = []
     for tbl, cols in by_table.items():
         select = [F.col(tbl.key).alias(spec.measurement_key)]
         select += [F.col(col).alias(canonical) for canonical, col in cols]
-        per_table.append(read_result_table(spark, tbl.path).select(*select))
+        raw = read_table(spark, tbl.path)
+        if extra and not extras_placed:
+            available = [c for c in extra if c in raw.columns]
+            select += [F.col(c) for c in available]
+            extras_placed = True
+        per_table.append(raw.select(*select))
 
     joined = per_table[0]
     for df in per_table[1:]:
