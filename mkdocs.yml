@@ -1,0 +1,98 @@
+site_name: causalops
+site_description: Registry for causal inference model results on Databricks
+
+theme:
+  name: material
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - content.code.copy
+    - content.code.annotate
+    - toc.integrate
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+
+plugins:
+  - search
+  - mkdocstrings:
+      default_handler: python
+      handlers:
+        python:
+          paths: [src]
+          options:
+            show_source: true
+            show_root_heading: true
+            show_root_full_path: false
+            show_symbol_type_heading: true
+            show_symbol_type_toc: true
+            members_order: source
+            merge_init_into_class: true
+            show_if_no_docstring: false
+            docstring_style: google
+            docstring_section_style: spacy
+            show_signature_annotations: true
+            separate_signature: true
+            signature_crossrefs: true
+            show_bases: true
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.tabbed:
+      alternate_style: true
+  - toc:
+      permalink: true
+  - attr_list
+  - md_in_html
+
+nav:
+  - Home: index.md
+  - Tutorials:
+      - tutorials/index.md
+      - Define a ModelSpec: tutorials/define-a-model-spec.md
+      - Register & Validate: tutorials/register-and-validate.md
+      - Promote through Lifecycle: tutorials/promote-lifecycle.md
+      - Query Results: tutorials/query-results.md
+  - How-To Guides:
+      - how-to/index.md
+      - Production-of-Record Collection: how-to/production-of-record.md
+      - CI Registration with GitHub Actions: how-to/ci-registration.md
+      - Multi-Version Comparison: how-to/multi-version-comparison.md
+      - Custom Store Backend: how-to/custom-store-backend.md
+      - Databricks Migration: how-to/databricks-migration.md
+  - Reference:
+      - reference/index.md
+      - Spec Models: reference/spec.md
+      - RegistryClient: reference/client.md
+      - Planner: reference/planner.md
+      - Validation: reference/validation.md
+      - Store: reference/store.md
+      - Utilities: reference/utils.md
+      - Paths: reference/paths.md
+      - CLI: reference/cli.md
+  - Explanation:
+      - explanation/index.md
+      - Architecture: explanation/architecture.md
+      - Lifecycle Model: explanation/lifecycle-model.md
+      - Alias Resolution: explanation/alias-resolution.md
+      - Planner Internals: explanation/planner-internals.md
