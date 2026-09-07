@@ -74,25 +74,30 @@ class RegistryClient:
         family: str,
         metrics: Iterable[str],
         version: str | None = None,
+        versions: list[str] | None = None,
         status: str | list[str] | None = None,
         as_of: datetime | str | None = None,
     ) -> DataFrame:
         """Query metric results for a family, resolved to canonical column names.
 
-        Select versions by explicit ``version`` or by ``status`` (not both).
-        When multiple versions match, rows are unioned with a ``version`` tag.
+        Select versions by explicit ``version``, a list of ``versions``, or by
+        ``status`` (mutually exclusive). When multiple versions match, rows are
+        unioned with a ``version`` tag.
         ``as_of`` narrows status lookups to a point in time.
         """
-        if version is not None and status is not None:
-            raise ValueError("pass either `version` or `status`, not both")
-        if version is None and status is None:
-            raise ValueError("one of `version` or `status` is required")
+        selectors = sum(x is not None for x in (version, versions, status))
+        if selectors > 1:
+            raise ValueError("pass exactly one of `version`, `versions`, or `status`")
+        if selectors == 0:
+            raise ValueError("one of `version`, `versions`, or `status` is required")
 
         if as_of is not None and isinstance(as_of, str):
             as_of = datetime.fromisoformat(as_of)
 
         if version is not None:
             regs = [self.store.get(family, version)]
+        elif versions is not None:
+            regs = [self.store.get(family, v) for v in versions]
         else:
             assert status is not None  # narrowed by the guards above
             statuses = [Status(status)] if isinstance(status, str) else [Status(s) for s in status]

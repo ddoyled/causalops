@@ -58,4 +58,4 @@ This documentation follows the [Diataxis](https://diataxis.fr/) framework:
 
 - [Query Results](tutorials/query-results.md) — query by version, status, or point in time
 - [Production-of-Record Collection](how-to/production-of-record.md) — build a unified production table across families
-- [Multi-Version Comparison](how-to/multi-version-comparison.md) — compare production and challenger side-by-side
+- [Champion / Challenger Comparison](how-to/multi-version-comparison.md) — compare two versions side-by-side before cutting over

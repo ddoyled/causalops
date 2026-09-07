@@ -1,4 +1,4 @@
-# Build a Production-of-Record Table
+# Build Production Results Table for Downstream Reporting
 
 Collect each model family's production results into a single DataFrame, respecting the date windows during which each version held production status.
 
@@ -43,7 +43,8 @@ def collect_production_results(
         spec = client.describe(family, version).spec
         df = (
             plan_for_spec(
-                client.spark, spec,
+                client.spark,
+                spec,
                 metrics=metrics,
                 include_columns=["run_date", "channel_id"],
             )

@@ -99,13 +99,53 @@ def test_get_results_multi_status_unions(spark, tmp_path):
     assert versions == {"3.0.0", "2.9.0"}
 
 
+def test_get_results_by_versions_list(spark, tmp_path):
+    paths = _seed_result_tables(tmp_path)
+    store = _seed_registry(tmp_path, paths)
+    client = RegistryClient(store=store, spark=spark)
+    df = client.get_results(
+        family="uplift",
+        versions=["2.9.0", "3.0.0"],
+        metrics=["treatment_effect"],
+    )
+    versions = {r["version"] for r in df.collect()}
+    assert versions == {"2.9.0", "3.0.0"}
+    assert "version" in df.columns
+
+
 def test_get_results_rejects_status_and_version_together(spark, tmp_path):
     paths = _seed_result_tables(tmp_path)
     store = _seed_registry(tmp_path, paths)
     client = RegistryClient(store=store, spark=spark)
-    with pytest.raises(ValueError, match="either"):
+    with pytest.raises(ValueError, match="exactly one"):
         client.get_results(
             family="uplift", version="3.0.0", status="production", metrics=["treatment_effect"]
+        )
+
+
+def test_get_results_rejects_versions_and_status_together(spark, tmp_path):
+    paths = _seed_result_tables(tmp_path)
+    store = _seed_registry(tmp_path, paths)
+    client = RegistryClient(store=store, spark=spark)
+    with pytest.raises(ValueError, match="exactly one"):
+        client.get_results(
+            family="uplift",
+            versions=["2.9.0", "3.0.0"],
+            status="production",
+            metrics=["treatment_effect"],
+        )
+
+
+def test_get_results_rejects_version_and_versions_together(spark, tmp_path):
+    paths = _seed_result_tables(tmp_path)
+    store = _seed_registry(tmp_path, paths)
+    client = RegistryClient(store=store, spark=spark)
+    with pytest.raises(ValueError, match="exactly one"):
+        client.get_results(
+            family="uplift",
+            version="3.0.0",
+            versions=["2.9.0", "3.0.0"],
+            metrics=["treatment_effect"],
         )
 
 

@@ -76,8 +76,8 @@ nav:
   - How-To Guides:
       - how-to/index.md
       - Production-of-Record Collection: how-to/production-of-record.md
+      - Champion / Challenger Comparison: how-to/multi-version-comparison.md
       - CI Registration with GitHub Actions: how-to/ci-registration.md
-      - Multi-Version Comparison: how-to/multi-version-comparison.md
       - Custom Store Backend: how-to/custom-store-backend.md
       - Databricks Migration: how-to/databricks-migration.md
   - Reference:

@@ -5,7 +5,7 @@ The `causalops` package is organized around three personas:
 | Persona | Primary modules | Typical tasks |
 |---|---|---|
 | **Producer** (model team) | [Spec Models](spec.md), [Validation](validation.md), [CLI](cli.md) | Define specs, validate schemas, register versions |
-| **Consumer** (downstream analytics) | [RegistryClient](client.md), [Planner](planner.md) | Query results, discover versions, build production-of-record tables |
+| **Consumer** (downstream analytics) | [RegistryClient](client.md), [Planner](planner.md) | Query results, discover versions, build production tables for downstream reporting |
 | **Platform team** | [Store](store.md), [CLI](cli.md) | Promote versions, implement storage backends |
 
 Supporting modules:

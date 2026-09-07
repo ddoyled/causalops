@@ -55,7 +55,10 @@ def collect_production_results(
         spec = client.describe(family, version).spec
         df = (
             plan_for_spec(
-                client.spark, spec, metrics=metrics, include_columns=["run_date", "channel_id"]
+                client.spark,
+                spec,
+                metrics=metrics,
+                include_columns=["run_date", "channel_id"],
             )
             .filter(F.col("run_date") >= start)
             .withColumn("family", F.lit(family))
