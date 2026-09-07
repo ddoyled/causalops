@@ -9,53 +9,29 @@ validator.
 
 ## Documentation
 
-Full documentation: run `mkdocs serve` or see the `docs/` directory.
+Full documentation: [ddoyled.github.io/causalops](https://ddoyled.github.io/causalops/)
 
 ## Setup
 
-    python -m venv .venv && source .venv/bin/activate
-    pip install -e '.[dev]'
+    uv sync --dev
     export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64   # or your Java 17 path
 
 ## Test
 
-    pytest -x -q
+    uv run pytest -x -q
 
-## Design
+## Examples
 
-See `docs/superpowers/plans/2026-08-14-model-registry-poc.md`.
+Seed the local warehouse and registry, then run either example:
 
-## Walkthrough
+    uv run python scripts/seed_examples.py
 
-Seed the local Parquet tables the example spec points at:
+[**Keystone**](examples/keystone.py) — build a production-of-record table across all families:
 
-    python scripts/seed_examples.py --example uplift-model
+    uv run python examples/keystone.py
 
-Register and promote:
+[**Champion / Challenger**](examples/champion_challenger.py) — compare two versions side-by-side:
 
-    cd examples/uplift-model
-    causalops register --spec-path model_spec.py \
-        --git-repo local/uplift-model --git-tag v3.1.0 \
-        --git-sha $(git rev-parse HEAD) --registered-by "$USER"
-    causalops promote --family uplift --version 3.1.0 \
-        --status production --assigned-by "$USER"
+    uv run python examples/champion_challenger.py
 
-Query from a notebook / Python REPL:
-
-    from causalops import RegistryClient
-    from causalops.utils import build_local_spark_session
-    from causalops.store import get_store
-
-    spark = build_local_spark_session()
-    client = RegistryClient(store=get_store(), spark=spark)
-    client.get_results(
-        family="uplift", status="production",
-        metrics=["treatment_effect", "cate_variance"],
-    ).show()
-
-Local state lives under `<repo>/.causalops/`:
-
-- `registry.json` — the registry (registrations + status log).
-- `data/<example>/<table>.parquet` — mock result tables.
-
-Both are wiped by `git clean -fdx`.
+Local state lives under `<repo>/.causalops/` and is wiped by `git clean -fdx`.
